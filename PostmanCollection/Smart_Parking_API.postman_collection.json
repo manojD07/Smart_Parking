@@ -1,0 +1,1604 @@
+{
+	"info": {
+		"_postman_id": "smart-parking-api-collection",
+		"name": "Smart Parking Management System API",
+		"description": "Complete API collection for the Smart Parking Management System. This collection includes all endpoints for user management, authentication, parking lot operations, booking management, and administration.\n\n## Authentication\nMost endpoints require JWT authentication. Use the login endpoint first to get access tokens.\n\n## Environment Variables\n- `base_url`: API base URL (default: http://localhost:8000)\n- `access_token`: JWT access token (set automatically after login)\n- `user_id`: Current user ID\n- `booking_id`: Sample booking ID\n- `lot_id`: Sample parking lot ID",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "smart-parking-team"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Check if the API is healthy and running"
+					},
+					"response": []
+				}
+			],
+			"description": "Health check endpoints"
+		},
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('user_id', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"phone\": \"+1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register a new user account"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('access_token', response.access_token);",
+									"    pm.environment.set('refresh_token', response.refresh_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login with email and password to get access tokens"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('access_token', response.access_token);",
+									"    pm.environment.set('refresh_token', response.refresh_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Refresh access token using refresh token"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User Info",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Get current authenticated user information"
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"current_password\": \"SecurePassword123!\",\n  \"new_password\": \"NewSecurePassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/change-password",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"change-password"
+							]
+						},
+						"description": "Change user password"
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Logout user (client-side token invalidation)"
+					},
+					"response": []
+				}
+			],
+			"description": "User authentication and authorization endpoints"
+		},
+		{
+			"name": "User Management",
+			"item": [
+				{
+					"name": "Current User",
+					"item": [
+						{
+							"name": "Get Current User Profile",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/me",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"me"
+									]
+								},
+								"description": "Get current user profile information"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Current User Profile",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe Updated\",\n  \"phone\": \"+1234567891\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/me",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"me"
+									]
+								},
+								"description": "Update current user profile"
+							},
+							"response": []
+						},
+						{
+							"name": "Change Password",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"current_password\": \"SecurePassword123!\",\n  \"new_password\": \"NewSecurePassword123!\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/me/change-password",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"me",
+										"change-password"
+									]
+								},
+								"description": "Change current user password"
+							},
+							"response": []
+						},
+						{
+							"name": "Deactivate Account",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/me",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"me"
+									]
+								},
+								"description": "Deactivate current user account"
+							},
+							"response": []
+						},
+						{
+							"name": "Get My Bookings",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/me/bookings?status=active&skip=0&limit=20",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"me",
+										"bookings"
+									],
+									"query": [
+										{
+											"key": "status",
+											"value": "active",
+											"description": "Filter by booking status"
+										},
+										{
+											"key": "skip",
+											"value": "0",
+											"description": "Number of items to skip"
+										},
+										{
+											"key": "limit",
+											"value": "20",
+											"description": "Number of items to return"
+										}
+									]
+								},
+								"description": "Get current user's bookings"
+							},
+							"response": []
+						}
+					],
+					"description": "Current user profile and data management"
+				},
+				{
+					"name": "Admin User Management",
+					"item": [
+						{
+							"name": "Get All Users",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/?skip=0&limit=20&is_active=true",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										""
+									],
+									"query": [
+										{
+											"key": "skip",
+											"value": "0"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "is_active",
+											"value": "true"
+										}
+									]
+								},
+								"description": "Get all users (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Get User by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/{{user_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"{{user_id}}"
+									]
+								},
+								"description": "Get user by ID (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Update User",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"first_name\": \"Updated\",\n  \"last_name\": \"User\",\n  \"phone\": \"+1234567892\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/{{user_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"{{user_id}}"
+									]
+								},
+								"description": "Update user (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Activate User",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/{{user_id}}/activate",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"{{user_id}}",
+										"activate"
+									]
+								},
+								"description": "Activate user account (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Deactivate User",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/{{user_id}}/deactivate",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"{{user_id}}",
+										"deactivate"
+									]
+								},
+								"description": "Deactivate user account (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Make User Admin",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/{{user_id}}/make-admin",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"{{user_id}}",
+										"make-admin"
+									]
+								},
+								"description": "Grant admin privileges to user (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Remove Admin Privileges",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/{{user_id}}/remove-admin",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"{{user_id}}",
+										"remove-admin"
+									]
+								},
+								"description": "Remove admin privileges from user (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Search Users",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/search?q=john&skip=0&limit=20",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"users",
+										"search"
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "john",
+											"description": "Search query"
+										},
+										{
+											"key": "skip",
+											"value": "0"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										}
+									]
+								},
+								"description": "Search users by name or email (admin only)"
+							},
+							"response": []
+						}
+					],
+					"description": "Administrative user management endpoints"
+				}
+			],
+			"description": "User profile and management endpoints"
+		},
+		{
+			"name": "Parking Management",
+			"item": [
+				{
+					"name": "Parking Lots",
+					"item": [
+						{
+							"name": "Get All Parking Lots",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.length > 0) {",
+											"        pm.environment.set('lot_id', response[0].id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/lots?skip=0&limit=20&is_active=true",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"lots"
+									],
+									"query": [
+										{
+											"key": "skip",
+											"value": "0"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "is_active",
+											"value": "true"
+										}
+									]
+								},
+								"description": "Get all parking lots with pagination"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Parking Lot by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/lots/{{lot_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"lots",
+										"{{lot_id}}"
+									]
+								},
+								"description": "Get parking lot details by ID"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Lot Availability",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/lots/{{lot_id}}/availability?vehicle_type=car&start_time=2024-01-01T10:00:00Z&end_time=2024-01-01T12:00:00Z",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"lots",
+										"{{lot_id}}",
+										"availability"
+									],
+									"query": [
+										{
+											"key": "vehicle_type",
+											"value": "car",
+											"description": "Vehicle type (car/bike)"
+										},
+										{
+											"key": "start_time",
+											"value": "2024-01-01T10:00:00Z",
+											"description": "Start time (ISO format)"
+										},
+										{
+											"key": "end_time",
+											"value": "2024-01-01T12:00:00Z",
+											"description": "End time (ISO format)"
+										}
+									]
+								},
+								"description": "Check parking lot availability for specific time and vehicle type"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Lot Slots",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/lots/{{lot_id}}/slots?vehicle_type=car&available_only=true&skip=0&limit=20",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"lots",
+										"{{lot_id}}",
+										"slots"
+									],
+									"query": [
+										{
+											"key": "vehicle_type",
+											"value": "car",
+											"description": "Filter by vehicle type"
+										},
+										{
+											"key": "available_only",
+											"value": "true",
+											"description": "Show only available slots"
+										},
+										{
+											"key": "skip",
+											"value": "0"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										}
+									]
+								},
+								"description": "Get parking slots for a specific lot"
+							},
+							"response": []
+						},
+						{
+							"name": "Check Specific Availability",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"vehicle_type\": \"car\",\n  \"start_time\": \"2024-01-01T10:00:00Z\",\n  \"end_time\": \"2024-01-01T12:00:00Z\",\n  \"vehicle_count\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/lots/{{lot_id}}/availability",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"lots",
+										"{{lot_id}}",
+										"availability"
+									]
+								},
+								"description": "Check availability with specific parameters"
+							},
+							"response": []
+						}
+					],
+					"description": "Parking lot information and availability"
+				},
+				{
+					"name": "Search & Discovery",
+					"item": [
+						{
+							"name": "Search Parking Lots",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"radius_km\": 5.0,\n  \"vehicle_type\": \"car\",\n  \"start_time\": \"2024-01-01T10:00:00Z\",\n  \"end_time\": \"2024-01-01T12:00:00Z\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"search"
+									]
+								},
+								"description": "Search parking lots by location and criteria"
+							},
+							"response": []
+						}
+					],
+					"description": "Location-based parking lot search"
+				},
+				{
+					"name": "Admin Parking Management",
+					"item": [
+						{
+							"name": "Create Parking Lot",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    pm.environment.set('lot_id', response.id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Downtown Parking Plaza\",\n  \"description\": \"Premium parking facility in downtown area\",\n  \"address\": \"123 Main Street, Downtown\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"total_car_slots\": 100,\n  \"total_bike_slots\": 50,\n  \"base_hourly_rate_car\": 5.00,\n  \"base_hourly_rate_bike\": 2.00,\n  \"operating_hours_start\": \"06:00:00\",\n  \"operating_hours_end\": \"22:00:00\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/admin/lots",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"admin",
+										"lots"
+									]
+								},
+								"description": "Create a new parking lot (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Parking Lot",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Downtown Parking Plaza Updated\",\n  \"description\": \"Updated premium parking facility\",\n  \"base_hourly_rate_car\": 6.00,\n  \"base_hourly_rate_bike\": 2.50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/admin/lots/{{lot_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"admin",
+										"lots",
+										"{{lot_id}}"
+									]
+								},
+								"description": "Update parking lot information (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Parking Lot",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/admin/lots/{{lot_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"admin",
+										"lots",
+										"{{lot_id}}"
+									]
+								},
+								"description": "Delete parking lot (admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Lot Statistics",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/parking/admin/lots/{{lot_id}}/statistics",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"parking",
+										"admin",
+										"lots",
+										"{{lot_id}}",
+										"statistics"
+									]
+								},
+								"description": "Get detailed parking lot statistics (admin only)"
+							},
+							"response": []
+						}
+					],
+					"description": "Administrative parking lot management"
+				}
+			],
+			"description": "Parking lot management and search endpoints"
+		},
+		{
+			"name": "Booking Management",
+			"item": [
+				{
+					"name": "Create Booking",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('booking_id', response.id);",
+									"    pm.environment.set('booking_reference', response.booking_reference);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lot_id\": \"{{lot_id}}\",\n  \"vehicle_type\": \"car\",\n  \"vehicle_number\": \"ABC123\",\n  \"start_time\": \"2024-01-01T10:00:00Z\",\n  \"end_time\": \"2024-01-01T12:00:00Z\",\n  \"notes\": \"Business meeting parking\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								""
+							]
+						},
+						"description": "Create a new parking booking"
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Bookings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/my?status=active&skip=0&limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								"my"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "active",
+									"description": "Filter by booking status"
+								},
+								{
+									"key": "skip",
+									"value": "0"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get current user's bookings"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Booking by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/{{booking_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								"{{booking_id}}"
+							]
+						},
+						"description": "Get booking details by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Booking by Reference",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/reference/{{booking_reference}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								"reference",
+								"{{booking_reference}}"
+							]
+						},
+						"description": "Get booking by reference number"
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Booking",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/{{booking_id}}/cancel",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								"{{booking_id}}",
+								"cancel"
+							]
+						},
+						"description": "Cancel a booking"
+					},
+					"response": []
+				},
+				{
+					"name": "Check In",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/{{booking_id}}/checkin",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								"{{booking_id}}",
+								"checkin"
+							]
+						},
+						"description": "Check in to a booking"
+					},
+					"response": []
+				},
+				{
+					"name": "Check Out",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/{{booking_id}}/checkout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								"{{booking_id}}",
+								"checkout"
+							]
+						},
+						"description": "Check out from a booking"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Pricing Preview",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lot_id\": \"{{lot_id}}\",\n  \"vehicle_type\": \"car\",\n  \"start_time\": \"2024-01-01T10:00:00Z\",\n  \"end_time\": \"2024-01-01T12:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/pricing-preview",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								"pricing-preview"
+							]
+						},
+						"description": "Get pricing preview for a potential booking"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Bookings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/bookings/search?q=ABC123&skip=0&limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								"search"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "ABC123",
+									"description": "Search by vehicle number or booking reference"
+								},
+								{
+									"key": "skip",
+									"value": "0"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Search bookings by vehicle number or reference"
+					},
+					"response": []
+				}
+			],
+			"description": "Parking booking lifecycle management"
+		},
+		{
+			"name": "Administration",
+			"item": [
+				{
+					"name": "Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/dashboard",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"dashboard"
+							]
+						},
+						"description": "Get admin dashboard statistics"
+					},
+					"response": []
+				},
+				{
+					"name": "Revenue Report",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/reports/revenue?start_date=2024-01-01&end_date=2024-01-31&lot_id={{lot_id}}&group_by=day",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"reports",
+								"revenue"
+							],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "2024-01-01",
+									"description": "Start date for report"
+								},
+								{
+									"key": "end_date",
+									"value": "2024-01-31",
+									"description": "End date for report"
+								},
+								{
+									"key": "lot_id",
+									"value": "{{lot_id}}",
+									"description": "Optional: specific lot ID"
+								},
+								{
+									"key": "group_by",
+									"value": "day",
+									"description": "Group by: day, week, month"
+								}
+							]
+						},
+						"description": "Generate revenue reports"
+					},
+					"response": []
+				},
+				{
+					"name": "User Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/users/statistics",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"users",
+								"statistics"
+							]
+						},
+						"description": "Get user registration and activity statistics"
+					},
+					"response": []
+				},
+				{
+					"name": "Cleanup Expired Bookings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/maintenance/cleanup-expired",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"maintenance",
+								"cleanup-expired"
+							]
+						},
+						"description": "Cleanup expired bookings and free up slots"
+					},
+					"response": []
+				}
+			],
+			"description": "Administrative functions and reporting"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Add timestamp to all requests",
+					"pm.request.headers.add({",
+					"  key: 'X-Request-Time',",
+					"  value: new Date().toISOString()",
+					"});",
+					"",
+					"// Auto-add authorization header if token exists",
+					"const token = pm.environment.get('access_token');",
+					"if (token && !pm.request.headers.has('Authorization')) {",
+					"  pm.request.headers.add({",
+					"    key: 'Authorization',",
+					"    value: 'Bearer ' + token",
+					"  });",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Log response time",
+					"const responseTime = pm.response.responseTime;",
+					"console.log('Response time:', responseTime + 'ms');",
+					"",
+					"// Check for common errors",
+					"if (pm.response.code === 401) {",
+					"  console.log('Authentication required - please login first');",
+					"}",
+					"",
+					"if (pm.response.code === 403) {",
+					"  console.log('Insufficient permissions - admin access required');",
+					"}",
+					"",
+					"// Validate response structure for successful requests",
+					"if (pm.response.code >= 200 && pm.response.code < 300) {",
+					"  try {",
+					"    const response = pm.response.json();",
+					"    console.log('Request successful');",
+					"  } catch (e) {",
+					"    console.log('Response is not valid JSON');",
+					"  }",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "booking_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "booking_reference",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "lot_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

@@ -1,0 +1,45 @@
+{
+  "name": "smart-parking-api-tests",
+  "version": "1.0.0",
+  "description": "Postman collection and automated tests for Smart Parking Management System API",
+  "main": "test-runner.js",
+  "scripts": {
+    "test": "node test-runner.js full",
+    "test:smoke": "node test-runner.js smoke",
+    "test:auth": "node test-runner.js auth",
+    "test:users": "node test-runner.js users",
+    "test:parking": "node test-runner.js parking",
+    "test:bookings": "node test-runner.js bookings",
+    "test:admin": "node test-runner.js admin",
+    "validate": "node test-runner.js validate",
+    "newman": "newman run Smart_Parking_API.postman_collection.json -e Smart_Parking_Local.postman_environment.json",
+    "newman:html": "newman run Smart_Parking_API.postman_collection.json -e Smart_Parking_Local.postman_environment.json -r htmlextra --reporter-htmlextra-export test-results.html",
+    "newman:json": "newman run Smart_Parking_API.postman_collection.json -e Smart_Parking_Local.postman_environment.json -r json --reporter-json-export test-results.json"
+  },
+  "keywords": [
+    "postman",
+    "api",
+    "testing",
+    "smart-parking",
+    "newman",
+    "automation"
+  ],
+  "author": "Smart Parking Team",
+  "license": "MIT",
+  "devDependencies": {
+    "newman": "^6.0.0",
+    "newman-reporter-htmlextra": "^1.23.0"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourorg/smart-parking-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourorg/smart-parking-api/issues"
+  },
+  "homepage": "https://github.com/yourorg/smart-parking-api#readme"
+}
