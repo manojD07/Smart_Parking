@@ -2,7 +2,7 @@
 
 from sqlalchemy import Column, String, ForeignKey, DECIMAL, Time, Boolean, CheckConstraint, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped
 from datetime import time, datetime
 from typing import TYPE_CHECKING
 from enum import Enum
@@ -119,7 +119,7 @@ class PricingRule(BaseModel):
     )
     
     # Relationships
-    lot: "ParkingLot" = relationship(
+    lot: Mapped["ParkingLot"] = relationship(
         "ParkingLot", 
         back_populates="pricing_rules"
     )

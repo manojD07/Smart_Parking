@@ -47,3 +47,16 @@ class UserLogin(BaseModel):
     
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., description="User password")
+
+
+class UserPasswordReset(BaseModel):
+    """Password reset request schema."""
+    
+    email: EmailStr = Field(..., description="User email address")
+
+
+class UserPasswordResetConfirm(BaseModel):
+    """Password reset confirmation schema."""
+    
+    token: str = Field(..., description="Reset token")
+    new_password: str = Field(..., min_length=8, description="New password")

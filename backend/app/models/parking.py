@@ -2,8 +2,8 @@
 
 from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DECIMAL, CheckConstraint, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from typing import TYPE_CHECKING
+from sqlalchemy.orm import relationship, Mapped
+from typing import TYPE_CHECKING, List, Optional
 from enum import Enum
 
 from app.models.base import BaseModel
@@ -88,19 +88,19 @@ class ParkingLot(BaseModel):
     )
     
     # Relationships
-    slots: list["ParkingSlot"] = relationship(
+    slots: Mapped[List["ParkingSlot"]] = relationship(
         "ParkingSlot", 
         back_populates="lot",
         cascade="all, delete-orphan",
         lazy="dynamic"
     )
-    pricing_rules: list["PricingRule"] = relationship(
+    pricing_rules: Mapped[List["PricingRule"]] = relationship(
         "PricingRule", 
         back_populates="lot",
         cascade="all, delete-orphan",
         lazy="dynamic"
     )
-    bookings: list["Booking"] = relationship(
+    bookings: Mapped[List["Booking"]] = relationship(
         "Booking", 
         back_populates="lot",
         lazy="dynamic"
@@ -175,16 +175,16 @@ class ParkingSlot(BaseModel):
     )
     
     # Relationships
-    lot: "ParkingLot" = relationship(
+    lot: Mapped["ParkingLot"] = relationship(
         "ParkingLot", 
         back_populates="slots"
     )
-    bookings: list["Booking"] = relationship(
+    bookings: Mapped[List["Booking"]] = relationship(
         "Booking", 
         back_populates="slot",
         lazy="dynamic"
     )
-    slot_allocations: list["SlotAllocation"] = relationship(
+    slot_allocations: Mapped[List["SlotAllocation"]] = relationship(
         "SlotAllocation", 
         back_populates="slot",
         cascade="all, delete-orphan",

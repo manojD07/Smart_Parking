@@ -2,9 +2,9 @@
 
 from sqlalchemy import Column, String, ForeignKey, DECIMAL, DateTime, CheckConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, List
 from enum import Enum
 import secrets
 import string
@@ -103,19 +103,19 @@ class Booking(BaseModel):
     )
     
     # Relationships
-    user: "User" = relationship(
+    user: Mapped["User"] = relationship(
         "User", 
         back_populates="bookings"
     )
-    lot: "ParkingLot" = relationship(
+    lot: Mapped["ParkingLot"] = relationship(
         "ParkingLot", 
         back_populates="bookings"
     )
-    slot: Optional["ParkingSlot"] = relationship(
+    slot: Mapped[Optional["ParkingSlot"]] = relationship(
         "ParkingSlot", 
         back_populates="bookings"
     )
-    slot_allocations: list["SlotAllocation"] = relationship(
+    slot_allocations: Mapped[List["SlotAllocation"]] = relationship(
         "SlotAllocation", 
         back_populates="booking",
         cascade="all, delete-orphan",
@@ -286,11 +286,11 @@ class SlotAllocation(BaseModel):
     )
     
     # Relationships
-    booking: "Booking" = relationship(
+    booking: Mapped["Booking"] = relationship(
         "Booking", 
         back_populates="slot_allocations"
     )
-    slot: "ParkingSlot" = relationship(
+    slot: Mapped["ParkingSlot"] = relationship(
         "ParkingSlot", 
         back_populates="slot_allocations"
     )

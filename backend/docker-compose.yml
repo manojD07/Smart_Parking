@@ -76,15 +76,16 @@ services:
 
   # Celery Flower (Monitoring)
   celery_flower:
-    build: .
+    image: mher/flower:2.0
     ports:
       - "5555:5555"
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - FLOWER_PORT=5555
     depends_on:
       - redis
-    command: celery -A app.tasks.celery_app flower --port=5555
+    command: celery --broker=redis://redis:6379/1 flower --port=5555
 
 volumes:
   postgres_data:

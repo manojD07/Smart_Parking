@@ -1,8 +1,8 @@
 """User model for authentication and user management."""
 
 from sqlalchemy import Column, String, Boolean, Index
-from sqlalchemy.orm import relationship
-from typing import TYPE_CHECKING
+from sqlalchemy.orm import relationship, Mapped
+from typing import TYPE_CHECKING, List
 
 from app.models.base import BaseModel
 
@@ -56,7 +56,7 @@ class User(BaseModel):
     )
     
     # Relationships
-    bookings: list["Booking"] = relationship(
+    bookings: Mapped[List["Booking"]] = relationship(
         "Booking", 
         back_populates="user",
         cascade="all, delete-orphan",

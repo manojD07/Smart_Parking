@@ -10,9 +10,9 @@ from app.services.user import UserService
 from app.schemas.user import (
     UserCreate,
     UserUpdate,
-    UserResponse,
-    ChangePasswordRequest
+    UserResponse
 )
+from app.schemas.auth import ChangePasswordRequest
 from app.schemas.common import SuccessResponse, PaginatedResponse
 from app.api.deps import get_current_active_user, get_current_admin_user
 from app.models.user import User
