@@ -1,0 +1,91 @@
+services:
+  # FastAPI Application
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/smart_parking
+      - DATABASE_URL_SYNC=postgresql://postgres:password@db:5432/smart_parking
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=smart_parking
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  # Celery Worker
+  celery_worker:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/smart_parking
+      - DATABASE_URL_SYNC=postgresql://postgres:password@db:5432/smart_parking
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+
+  # Celery Beat (Scheduler)
+  celery_beat:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/smart_parking
+      - DATABASE_URL_SYNC=postgresql://postgres:password@db:5432/smart_parking
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+
+  # Celery Flower (Monitoring)
+  celery_flower:
+    build: .
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - redis
+    command: celery -A app.tasks.celery_app flower --port=5555
+
+volumes:
+  postgres_data:
+  redis_data:
