@@ -92,18 +92,18 @@ class ParkingLot(BaseModel):
         "ParkingSlot", 
         back_populates="lot",
         cascade="all, delete-orphan",
-        lazy="dynamic"
+        lazy="select"
     )
     pricing_rules: Mapped[List["PricingRule"]] = relationship(
         "PricingRule", 
         back_populates="lot",
         cascade="all, delete-orphan",
-        lazy="dynamic"
+        lazy="select"
     )
     bookings: Mapped[List["Booking"]] = relationship(
         "Booking", 
         back_populates="lot",
-        lazy="dynamic"
+        lazy="select"
     )
     
     # Constraints and Indexes
@@ -182,13 +182,13 @@ class ParkingSlot(BaseModel):
     bookings: Mapped[List["Booking"]] = relationship(
         "Booking", 
         back_populates="slot",
-        lazy="dynamic"
+        lazy="select"
     )
     slot_allocations: Mapped[List["SlotAllocation"]] = relationship(
         "SlotAllocation", 
         back_populates="slot",
         cascade="all, delete-orphan",
-        lazy="dynamic"
+        lazy="select"
     )
     
     # Constraints and Indexes

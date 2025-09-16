@@ -1,6 +1,7 @@
 """Booking service for handling parking reservations."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from app.core.timezone import now as ist_now, to_ist, ensure_ist
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 from decimal import Decimal
@@ -59,6 +60,10 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
     ) -> Booking:
         """Create a new parking booking."""
         try:
+            # Ensure datetimes are timezone-aware in IST before processing
+            start_time = to_ist(start_time) if start_time.tzinfo else ensure_ist(start_time)
+            end_time = to_ist(end_time) if end_time.tzinfo else ensure_ist(end_time)
+                
             async def _create_booking_operation():
                 # Validate booking data
                 await self._validate_booking_request(
@@ -89,7 +94,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                     end_time=end_time,
                     total_amount=pricing_info["total_amount"],
                     booking_reference=booking_reference,
-                    status=BookingStatus.ACTIVE.value
+                    status=BookingStatus.PENDING.value
                 )
                 
                 # Create slot allocation
@@ -175,7 +180,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
             self.logger.error("Failed to cancel booking", booking_id=booking_id, error=str(e))
             raise BusinessLogicError("Failed to cancel booking")
     
-    async def check_in_booking(self, booking_id: UUID, user_id: UUID) -> bool:
+    async def check_in_booking(self, booking_id: UUID, user_id: UUID, is_admin: bool = False) -> bool:
         """Check in to a booking."""
         try:
             async def _check_in_operation():
@@ -183,7 +188,8 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                 if not booking:
                     raise NotFoundError("Booking not found")
                 
-                if booking.user_id != user_id:
+                # Only check user_id if not admin
+                if not is_admin and booking.user_id != user_id:
                     raise ValidationError("You can only check in to your own bookings")
                 
                 if not booking.can_check_in:
@@ -191,7 +197,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                 
                 booking.check_in()
                 
-                self.logger.info("Checked in to booking", booking_id=booking_id, user_id=user_id)
+                self.logger.info("Checked in to booking", booking_id=booking_id, user_id=user_id, is_admin=is_admin)
                 return True
             
             return await self.execute_in_transaction(_check_in_operation)
@@ -229,6 +235,33 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
             self.logger.error("Failed to check out booking", booking_id=booking_id, error=str(e))
             raise BusinessLogicError("Failed to check out")
     
+    async def get_booking_by_reference(self, booking_reference: str) -> Optional[Booking]:
+        """Get booking by reference code."""
+        try:
+            booking = await self.booking_repository.get_by_reference(booking_reference)
+            return booking
+            
+        except Exception as e:
+            self.logger.error("Failed to get booking by reference", reference=booking_reference, error=str(e))
+            raise BusinessLogicError("Failed to retrieve booking")
+    
+    async def admin_check_in_by_reference(self, booking_reference: str) -> bool:
+        """Admin check-in a booking by reference code."""
+        try:
+            # First get the booking
+            booking = await self.get_booking_by_reference(booking_reference)
+            if not booking:
+                raise NotFoundError("Booking not found")
+            
+            # Then check it in as admin
+            return await self.check_in_booking(booking.id, booking.user_id, is_admin=True)
+            
+        except (NotFoundError, ValidationError, BusinessLogicError):
+            raise
+        except Exception as e:
+            self.logger.error("Failed admin check-in by reference", reference=booking_reference, error=str(e))
+            raise BusinessLogicError("Failed to check in booking")
+    
     async def get_user_bookings(
         self, 
         user_id: UUID, 
@@ -239,9 +272,113 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         """Get bookings for a user."""
         return await self.booking_repository.get_user_bookings(user_id, status, skip, limit)
     
-    async def get_booking_by_reference(self, booking_reference: str) -> Optional[Booking]:
-        """Get booking by reference code."""
-        return await self.booking_repository.get_by_reference(booking_reference)
+    async def get_all_bookings_admin(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        status: Optional[BookingStatus] = None,
+        user_id: Optional[UUID] = None,
+        lot_id: Optional[UUID] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> List[Booking]:
+        """Get all bookings for admin with filtering."""
+        return await self.booking_repository.get_all_bookings_admin(
+            skip=skip,
+            limit=limit,
+            status=status,
+            user_id=user_id,
+            lot_id=lot_id,
+            start_date=start_date,
+            end_date=end_date
+        )
+    
+    async def admin_cancel_booking(self, booking_id: UUID, reason: Optional[str] = None) -> bool:
+        """Admin cancel any booking."""
+        try:
+            async def _admin_cancel_operation():
+                booking = await self.booking_repository.get_by_id(booking_id, load_relationships=True)
+                if not booking:
+                    raise NotFoundError("Booking not found")
+                
+                if not booking.can_cancel():
+                    raise BusinessLogicError("Cannot cancel this booking")
+                
+                booking.cancel()
+                
+                # Log cancellation reason if provided
+                if reason:
+                    self.logger.info("Admin cancelled booking", booking_id=booking_id, reason=reason)
+                else:
+                    self.logger.info("Admin cancelled booking", booking_id=booking_id)
+                
+                return True
+            
+            return await self.execute_in_transaction(_admin_cancel_operation)
+            
+        except (NotFoundError, ValidationError, BusinessLogicError):
+            raise
+        except Exception as e:
+            self.logger.error("Failed to cancel booking", booking_id=booking_id, error=str(e))
+            raise BusinessLogicError("Failed to cancel booking")
+    
+    async def process_refund(self, booking_id: UUID) -> bool:
+        """Process refund for a cancelled booking."""
+        try:
+            async def _process_refund_operation():
+                booking = await self.booking_repository.get_by_id(booking_id, load_relationships=True)
+                if not booking:
+                    raise NotFoundError("Booking not found")
+                
+                if booking.status != BookingStatus.CANCELLED.value:
+                    raise BusinessLogicError("Can only refund cancelled bookings")
+                
+                # Here you would integrate with payment gateway for actual refund
+                # For now, we'll just log the refund
+                self.logger.info("Processed refund", booking_id=booking_id, amount=booking.total_amount)
+                
+                return True
+            
+            return await self.execute_in_transaction(_process_refund_operation)
+            
+        except (NotFoundError, ValidationError, BusinessLogicError):
+            raise
+        except Exception as e:
+            self.logger.error("Failed to process refund", booking_id=booking_id, error=str(e))
+            raise BusinessLogicError("Failed to process refund")
+    
+    async def confirm_booking_after_payment(self, booking_id: UUID) -> bool:
+        """Confirm booking after successful payment."""
+        try:
+            async def _confirm_booking_operation():
+                booking = await self.booking_repository.get_by_id(booking_id, load_relationships=True)
+                if not booking:
+                    raise NotFoundError("Booking not found")
+                
+                if booking.status != BookingStatus.PENDING.value:
+                    raise BusinessLogicError("Can only confirm pending bookings")
+                
+                # Update booking status to CONFIRMED
+                booking.status = BookingStatus.CONFIRMED.value
+                
+                # Update user's total spent
+                if booking.user:
+                    booking.user.total_spent = (booking.user.total_spent or 0) + booking.total_amount
+                    self.logger.info("Updated user total spent", 
+                                   user_id=booking.user_id, 
+                                   amount=booking.total_amount,
+                                   new_total=booking.user.total_spent)
+                
+                self.logger.info("Booking confirmed after payment", booking_id=booking_id)
+                return True
+            
+            return await self.execute_in_transaction(_confirm_booking_operation)
+            
+        except (NotFoundError, ValidationError, BusinessLogicError):
+            raise
+        except Exception as e:
+            self.logger.error("Failed to confirm booking after payment", booking_id=booking_id, error=str(e))
+            raise BusinessLogicError("Failed to confirm booking")
     
     async def search_bookings(self, search_term: str, skip: int = 0, limit: int = 20) -> List[Booking]:
         """Search bookings."""
@@ -332,8 +469,14 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         if not lot.is_active:
             raise ParkingLotNotActiveError("Parking lot is not active")
         
+        # Ensure all datetimes are timezone-aware for consistent comparison
+        now = ist_now()
+        
+        # Convert naive datetimes to IST if necessary
+        start_time = to_ist(start_time) if start_time.tzinfo else ensure_ist(start_time)
+        end_time = to_ist(end_time) if end_time.tzinfo else ensure_ist(end_time)
+        
         # Validate time range
-        now = datetime.utcnow()
         if start_time <= now:
             raise InvalidTimeRangeError("Booking start time must be in the future")
         if end_time <= start_time:

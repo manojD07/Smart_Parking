@@ -35,6 +35,7 @@ class UserResponse(UserBase):
     id: UUID = Field(..., description="User ID")
     is_admin: bool = Field(..., description="Whether user is admin")
     is_active: bool = Field(..., description="Whether user is active")
+    total_spent: float = Field(default=0.0, description="Total amount spent by user")
     created_at: datetime = Field(..., description="User creation timestamp")
     updated_at: datetime = Field(..., description="User last update timestamp")
     

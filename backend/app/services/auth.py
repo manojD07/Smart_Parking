@@ -1,6 +1,6 @@
 """Authentication service for handling user authentication and authorization."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from uuid import UUID
 import bcrypt
@@ -96,7 +96,7 @@ class AuthService:
     def create_access_token(self, user: User) -> str:
         """Create JWT access token for user."""
         try:
-            expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+            expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
             
             payload = {
                 "sub": str(user.id),
@@ -118,7 +118,7 @@ class AuthService:
     def create_refresh_token(self, user: User) -> str:
         """Create JWT refresh token for user."""
         try:
-            expire = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
+            expire = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
             
             payload = {
                 "sub": str(user.id),
@@ -146,7 +146,7 @@ class AuthService:
             
             # Check expiration
             exp = payload.get("exp")
-            if exp and datetime.utcfromtimestamp(exp) < datetime.utcnow():
+            if exp and datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
                 raise TokenExpiredError("Token has expired")
             
             return payload
@@ -311,6 +311,11 @@ class AuthService:
         
         if not any(c.isdigit() for c in password):
             raise ValidationError("Password must contain at least one digit")
+        
+        # Check for special characters
+        special_chars = "!@#$%^&*(),.?\":{}|<>"
+        if not any(c in special_chars for c in password):
+            raise ValidationError("Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)")
     
     async def create_login_response(self, user: User) -> Dict[str, Any]:
         """Create complete login response with tokens and user info."""

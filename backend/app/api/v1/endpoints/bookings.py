@@ -45,7 +45,26 @@ async def create_booking(
             end_time=booking_data.end_time
         )
         
-        return BookingResponse.from_orm(booking)
+        return BookingResponse(
+            id=booking.id,
+            user_id=booking.user_id,
+            lot_id=booking.lot_id,
+            slot_id=booking.slot_id,
+            vehicle_type=booking.vehicle_type,
+            vehicle_number=booking.vehicle_number,
+            start_time=booking.start_time,
+            end_time=booking.end_time,
+            total_amount=booking.total_amount,
+            status=booking.status,
+            booking_reference=booking.booking_reference,
+            check_in_time=booking.check_in_time,
+            check_out_time=booking.check_out_time,
+            created_at=booking.created_at,
+            updated_at=booking.updated_at,
+            lot_name=None,
+            slot_number=None,
+            user_email=None
+        )
         
     except BaseApplicationError as e:
         raise create_http_exception(e)
@@ -72,6 +91,62 @@ async def get_my_bookings(
         )
         
         return [BookingResponse.from_orm(booking) for booking in bookings]
+        
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
+@router.post("/checkin/{booking_reference}", response_model=SuccessResponse)
+async def admin_check_in_by_reference(
+    booking_reference: str,
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Admin check-in a booking by reference code."""
+    try:
+        booking_service = BookingService(session)
+        
+        # Admin check-in by reference
+        success = await booking_service.admin_check_in_by_reference(booking_reference)
+        
+        if success:
+            return SuccessResponse(message="Booking checked in successfully")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to check in booking"
+            )
+            
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
+@router.get("/reference/{booking_reference}", response_model=BookingResponse)
+async def get_booking_by_reference(
+    booking_reference: str,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Get booking by reference code."""
+    try:
+        booking_service = BookingService(session)
+        
+        booking = await booking_service.get_booking_by_reference(booking_reference)
+        
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+        
+        # Users can only see their own bookings (unless admin)
+        if not current_user.is_admin and booking.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        return BookingResponse.from_orm(booking)
         
     except BaseApplicationError as e:
         raise create_http_exception(e)

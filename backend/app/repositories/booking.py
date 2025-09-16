@@ -68,6 +68,56 @@ class BookingRepository(BaseRepository[Booking]):
             self.logger.error("Failed to get user bookings", user_id=user_id, error=str(e))
             raise
     
+    async def get_all_bookings_admin(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        status: Optional[BookingStatus] = None,
+        user_id: Optional[UUID] = None,
+        lot_id: Optional[UUID] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> List[Booking]:
+        """Get all bookings for admin with filtering."""
+        try:
+            query = (
+                select(Booking)
+                .options(
+                    joinedload(Booking.user),
+                    joinedload(Booking.lot),
+                    joinedload(Booking.slot)
+                )
+            )
+            
+            # Apply filters
+            if status:
+                query = query.where(Booking.status == status.value)
+            
+            if user_id:
+                query = query.where(Booking.user_id == user_id)
+            
+            if lot_id:
+                query = query.where(Booking.lot_id == lot_id)
+            
+            if start_date:
+                query = query.where(Booking.start_time >= start_date)
+            
+            if end_date:
+                query = query.where(Booking.end_time <= end_date)
+            
+            # Order by most recent first
+            query = query.order_by(desc(Booking.created_at))
+            
+            # Apply pagination
+            query = query.offset(skip).limit(limit)
+            
+            result = await self.session.execute(query)
+            return list(result.scalars().all())
+            
+        except Exception as e:
+            self.logger.error("Failed to get all bookings for admin", error=str(e))
+            raise
+    
     async def get_lot_bookings(
         self, 
         lot_id: UUID, 

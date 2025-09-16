@@ -4,6 +4,7 @@ from sqlalchemy import Column, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declared_attr
 from datetime import datetime
+from app.core.timezone import now as ist_now
 from typing import Any
 import uuid
 
@@ -57,7 +58,7 @@ class BaseModel(Base, TimestampMixin):
         for key, value in data.items():
             if hasattr(self, key) and key != 'id':
                 setattr(self, key, value)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = ist_now()
     
     def __repr__(self) -> str:
         """String representation of model."""

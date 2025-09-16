@@ -3,7 +3,8 @@
 from sqlalchemy import Column, String, ForeignKey, DECIMAL, DateTime, CheckConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from app.core.timezone import now as ist_now
 from typing import TYPE_CHECKING, Optional, List
 from enum import Enum
 import secrets
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
 
 class BookingStatus(str, Enum):
     """Booking status enumeration."""
+    PENDING = "pending"
+    CONFIRMED = "confirmed" 
     ACTIVE = "active"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
@@ -82,7 +85,7 @@ class Booking(BaseModel):
     status = Column(
         String(20), 
         nullable=False, 
-        default=BookingStatus.ACTIVE.value,
+        default=BookingStatus.CONFIRMED.value,
         doc="Current booking status"
     )
     booking_reference = Column(
@@ -119,7 +122,7 @@ class Booking(BaseModel):
         "SlotAllocation", 
         back_populates="booking",
         cascade="all, delete-orphan",
-        lazy="dynamic"
+        lazy="select"
     )
     
     # Constraints and Indexes
@@ -157,25 +160,25 @@ class Booking(BaseModel):
     @property
     def is_expired(self) -> bool:
         """Check if booking has expired."""
-        if self.status != BookingStatus.ACTIVE.value:
+        if self.status not in [BookingStatus.CONFIRMED.value, BookingStatus.ACTIVE.value]:
             return False
-        return datetime.utcnow() > self.end_time
+        return ist_now() > self.end_time
     
     @property
     def is_current(self) -> bool:
         """Check if booking is currently in progress."""
-        now = datetime.utcnow()
+        now = ist_now()
         return (
-            self.status == BookingStatus.ACTIVE.value and
+            self.status in [BookingStatus.CONFIRMED.value, BookingStatus.ACTIVE.value] and
             self.start_time <= now <= self.end_time
         )
     
     @property
     def can_check_in(self) -> bool:
         """Check if user can check in."""
-        now = datetime.utcnow()
+        now = ist_now()
         return (
-            self.status == BookingStatus.ACTIVE.value and
+            self.status == BookingStatus.CONFIRMED.value and
             self.check_in_time is None and
             self.start_time <= now
         )
@@ -192,24 +195,24 @@ class Booking(BaseModel):
     @property
     def time_until_start(self) -> Optional[timedelta]:
         """Get time until booking starts."""
-        if self.start_time > datetime.utcnow():
-            return self.start_time - datetime.utcnow()
+        if self.start_time > ist_now():
+            return self.start_time - ist_now()
         return None
     
     @property
     def time_remaining(self) -> Optional[timedelta]:
         """Get remaining time in booking."""
         if self.is_current:
-            return self.end_time - datetime.utcnow()
+            return self.end_time - ist_now()
         return None
     
     def can_cancel(self, min_notice_hours: int = 1) -> bool:
         """Check if booking can be cancelled."""
-        if self.status != BookingStatus.ACTIVE.value:
+        if self.status not in [BookingStatus.CONFIRMED.value, BookingStatus.ACTIVE.value]:
             return False
         
         # Allow cancellation if start time is more than min_notice_hours away
-        min_cancel_time = datetime.utcnow() + timedelta(hours=min_notice_hours)
+        min_cancel_time = ist_now() + timedelta(hours=min_notice_hours)
         return self.start_time > min_cancel_time
     
     def cancel(self) -> None:
@@ -226,7 +229,8 @@ class Booking(BaseModel):
         if not self.can_check_in:
             raise ValueError("Cannot check in at this time")
         
-        self.check_in_time = datetime.utcnow()
+        self.check_in_time = ist_now()
+        self.status = BookingStatus.ACTIVE.value
         if self.slot:
             self.slot.mark_occupied()
     
@@ -235,7 +239,7 @@ class Booking(BaseModel):
         if not self.can_check_out:
             raise ValueError("Cannot check out at this time")
         
-        self.check_out_time = datetime.utcnow()
+        self.check_out_time = ist_now()
         self.status = BookingStatus.COMPLETED.value
         if self.slot:
             self.slot.mark_available()

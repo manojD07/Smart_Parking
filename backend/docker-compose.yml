@@ -49,6 +49,9 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/smart_parking
       - DATABASE_URL_SYNC=postgresql://postgres:password@db:5432/smart_parking
       - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+      - DEBUG=true
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
     depends_on:
@@ -65,6 +68,9 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/smart_parking
       - DATABASE_URL_SYNC=postgresql://postgres:password@db:5432/smart_parking
       - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+      - DEBUG=true
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
     depends_on:

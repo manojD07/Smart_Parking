@@ -1,0 +1,451 @@
+"""Payment and transaction models."""
+
+from sqlalchemy import Column, String, ForeignKey, DECIMAL, DateTime, CheckConstraint, Index, Text, Boolean
+from sqlalchemy.dialects.postgresql import UUID, JSON
+from sqlalchemy.orm import relationship, Mapped
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Optional, List, Dict, Any
+from enum import Enum
+import secrets
+import string
+
+from app.models.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.booking import Booking
+
+
+class PaymentMethod(str, Enum):
+    """Payment method enumeration."""
+    CREDIT_CARD = "credit_card"
+    DEBIT_CARD = "debit_card"
+    DIGITAL_WALLET = "digital_wallet"
+    UPI = "upi"
+    NET_BANKING = "net_banking"
+    CASH = "cash"
+
+
+class PaymentStatus(str, Enum):
+    """Payment status enumeration."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    REFUNDED = "refunded"
+    PARTIALLY_REFUNDED = "partially_refunded"
+
+
+class TransactionType(str, Enum):
+    """Transaction type enumeration."""
+    PAYMENT = "payment"
+    REFUND = "refund"
+    PARTIAL_REFUND = "partial_refund"
+    ADJUSTMENT = "adjustment"
+
+
+class PaymentGateway(str, Enum):
+    """Payment gateway enumeration."""
+    DUMMY_GATEWAY = "dummy_gateway"
+    STRIPE = "stripe"
+    RAZORPAY = "razorpay"
+    PAYPAL = "paypal"
+    SQUARE = "square"
+
+
+class Payment(BaseModel):
+    """Payment model for tracking transactions."""
+    
+    __tablename__ = "payments"
+    
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        doc="Reference to user making payment"
+    )
+    booking_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("bookings.id", ondelete="CASCADE"),
+        nullable=True,
+        doc="Reference to associated booking (if any)"
+    )
+    amount = Column(
+        DECIMAL(10, 2),
+        nullable=False,
+        doc="Payment amount"
+    )
+    currency = Column(
+        String(3),
+        nullable=False,
+        default="USD",
+        doc="Payment currency code"
+    )
+    payment_method = Column(
+        String(20),
+        nullable=False,
+        doc="Payment method used"
+    )
+    payment_gateway = Column(
+        String(20),
+        nullable=False,
+        doc="Payment gateway used"
+    )
+    status = Column(
+        String(20),
+        nullable=False,
+        default=PaymentStatus.PENDING.value,
+        doc="Current payment status"
+    )
+    transaction_id = Column(
+        String(100),
+        unique=True,
+        nullable=False,
+        doc="Unique transaction identifier"
+    )
+    gateway_transaction_id = Column(
+        String(100),
+        nullable=True,
+        doc="Gateway-specific transaction ID"
+    )
+    gateway_reference = Column(
+        String(100),
+        nullable=True,
+        doc="Gateway reference number"
+    )
+    description = Column(
+        Text,
+        nullable=True,
+        doc="Payment description"
+    )
+    payment_metadata = Column(
+        JSON,
+        nullable=True,
+        doc="Additional payment metadata"
+    )
+    processed_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc="Timestamp when payment was processed"
+    )
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc="Payment expiration time"
+    )
+    failure_reason = Column(
+        Text,
+        nullable=True,
+        doc="Reason for payment failure"
+    )
+    refund_amount = Column(
+        DECIMAL(10, 2),
+        nullable=True,
+        default=0.00,
+        doc="Total amount refunded"
+    )
+    
+    # Relationships
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="payments"
+    )
+    booking: Mapped[Optional["Booking"]] = relationship(
+        "Booking",
+        back_populates="payments"
+    )
+    transactions: Mapped[List["PaymentTransaction"]] = relationship(
+        "PaymentTransaction",
+        back_populates="payment",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
+    
+    # Constraints and Indexes
+    __table_args__ = (
+        CheckConstraint(
+            f"status IN {tuple(e.value for e in PaymentStatus)}",
+            name="check_payment_status"
+        ),
+        CheckConstraint(
+            f"payment_method IN {tuple(e.value for e in PaymentMethod)}",
+            name="check_payment_method"
+        ),
+        CheckConstraint(
+            f"payment_gateway IN {tuple(e.value for e in PaymentGateway)}",
+            name="check_payment_gateway"
+        ),
+        CheckConstraint('amount > 0', name='check_amount_positive'),
+        CheckConstraint('refund_amount >= 0', name='check_refund_amount_non_negative'),
+        CheckConstraint('refund_amount <= amount', name='check_refund_amount_valid'),
+        Index('idx_payment_user_id', 'user_id'),
+        Index('idx_payment_booking_id', 'booking_id'),
+        Index('idx_payment_status', 'status'),
+        Index('idx_payment_transaction_id', 'transaction_id'),
+        Index('idx_payment_gateway_transaction_id', 'gateway_transaction_id'),
+        Index('idx_payment_created_at', 'created_at'),
+        Index('idx_payment_processed_at', 'processed_at'),
+    )
+    
+    @classmethod
+    def generate_transaction_id(cls) -> str:
+        """Generate unique transaction ID."""
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        random_part = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+        return f"TXN{timestamp}{random_part}"
+    
+    @property
+    def is_pending(self) -> bool:
+        """Check if payment is pending."""
+        return self.status == PaymentStatus.PENDING.value
+    
+    @property
+    def is_completed(self) -> bool:
+        """Check if payment is completed."""
+        return self.status == PaymentStatus.COMPLETED.value
+    
+    @property
+    def is_failed(self) -> bool:
+        """Check if payment failed."""
+        return self.status == PaymentStatus.FAILED.value
+    
+    @property
+    def is_refunded(self) -> bool:
+        """Check if payment is fully refunded."""
+        return self.status == PaymentStatus.REFUNDED.value
+    
+    @property
+    def is_expired(self) -> bool:
+        """Check if payment has expired."""
+        if not self.expires_at:
+            return False
+        return datetime.now(timezone.utc) > self.expires_at
+    
+    @property
+    def refundable_amount(self) -> float:
+        """Get amount available for refund."""
+        return float(self.amount - (self.refund_amount or 0))
+    
+    @property
+    def is_fully_refunded(self) -> bool:
+        """Check if payment is fully refunded."""
+        return self.refund_amount >= self.amount
+    
+    def mark_processing(self) -> None:
+        """Mark payment as processing."""
+        self.status = PaymentStatus.PROCESSING.value
+    
+    def mark_completed(self, gateway_transaction_id: str = None, gateway_reference: str = None) -> None:
+        """Mark payment as completed."""
+        self.status = PaymentStatus.COMPLETED.value
+        self.processed_at = datetime.now(timezone.utc)
+        if gateway_transaction_id:
+            self.gateway_transaction_id = gateway_transaction_id
+        if gateway_reference:
+            self.gateway_reference = gateway_reference
+    
+    def mark_failed(self, failure_reason: str = None) -> None:
+        """Mark payment as failed."""
+        self.status = PaymentStatus.FAILED.value
+        self.processed_at = datetime.now(timezone.utc)
+        if failure_reason:
+            self.failure_reason = failure_reason
+    
+    def mark_cancelled(self) -> None:
+        """Mark payment as cancelled."""
+        self.status = PaymentStatus.CANCELLED.value
+        self.processed_at = datetime.now(timezone.utc)
+    
+    def add_refund(self, refund_amount: float) -> None:
+        """Add refund amount."""
+        current_refund = float(self.refund_amount or 0)
+        new_refund_total = current_refund + refund_amount
+        
+        if new_refund_total > float(self.amount):
+            raise ValueError("Refund amount cannot exceed payment amount")
+        
+        self.refund_amount = new_refund_total
+        
+        if new_refund_total >= float(self.amount):
+            self.status = PaymentStatus.REFUNDED.value
+        elif new_refund_total > 0:
+            self.status = PaymentStatus.PARTIALLY_REFUNDED.value
+    
+    def __str__(self) -> str:
+        """String representation."""
+        return f"Payment {self.transaction_id} - ${self.amount} ({self.status})"
+
+
+class PaymentTransaction(BaseModel):
+    """Individual payment transaction record."""
+    
+    __tablename__ = "payment_transactions"
+    
+    payment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("payments.id", ondelete="CASCADE"),
+        nullable=False,
+        doc="Reference to main payment"
+    )
+    transaction_type = Column(
+        String(20),
+        nullable=False,
+        doc="Type of transaction"
+    )
+    amount = Column(
+        DECIMAL(10, 2),
+        nullable=False,
+        doc="Transaction amount"
+    )
+    status = Column(
+        String(20),
+        nullable=False,
+        doc="Transaction status"
+    )
+    gateway_response = Column(
+        JSON,
+        nullable=True,
+        doc="Raw gateway response"
+    )
+    gateway_transaction_id = Column(
+        String(100),
+        nullable=True,
+        doc="Gateway transaction ID"
+    )
+    reference_number = Column(
+        String(100),
+        nullable=True,
+        doc="Transaction reference number"
+    )
+    notes = Column(
+        Text,
+        nullable=True,
+        doc="Transaction notes"
+    )
+    processed_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc="Transaction processing time"
+    )
+    
+    # Relationships
+    payment: Mapped["Payment"] = relationship(
+        "Payment",
+        back_populates="transactions"
+    )
+    
+    # Constraints and Indexes
+    __table_args__ = (
+        CheckConstraint(
+            f"transaction_type IN {tuple(e.value for e in TransactionType)}",
+            name="check_transaction_type"
+        ),
+        CheckConstraint(
+            f"status IN {tuple(e.value for e in PaymentStatus)}",
+            name="check_transaction_status"
+        ),
+        CheckConstraint('amount != 0', name='check_amount_non_zero'),
+        Index('idx_transaction_payment_id', 'payment_id'),
+        Index('idx_transaction_type', 'transaction_type'),
+        Index('idx_transaction_status', 'status'),
+        Index('idx_transaction_created_at', 'created_at'),
+        Index('idx_transaction_processed_at', 'processed_at'),
+    )
+    
+    def __str__(self) -> str:
+        """String representation."""
+        return f"Transaction {self.transaction_type} - ${self.amount} ({self.status})"
+
+
+class PaymentCard(BaseModel):
+    """Stored payment card information (tokenized)."""
+    
+    __tablename__ = "payment_cards"
+    
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        doc="Reference to card owner"
+    )
+    card_token = Column(
+        String(100),
+        nullable=False,
+        doc="Tokenized card identifier"
+    )
+    card_last_four = Column(
+        String(4),
+        nullable=False,
+        doc="Last four digits of card"
+    )
+    card_brand = Column(
+        String(20),
+        nullable=False,
+        doc="Card brand (visa, mastercard, etc.)"
+    )
+    card_type = Column(
+        String(20),
+        nullable=False,
+        doc="Card type (credit, debit)"
+    )
+    expiry_month = Column(
+        String(2),
+        nullable=False,
+        doc="Card expiry month"
+    )
+    expiry_year = Column(
+        String(4),
+        nullable=False,
+        doc="Card expiry year"
+    )
+    cardholder_name = Column(
+        String(100),
+        nullable=True,
+        doc="Name on card"
+    )
+    is_default = Column(
+        Boolean,
+        default=False,
+        doc="Whether this is the default card"
+    )
+    is_active = Column(
+        Boolean,
+        default=True,
+        doc="Whether card is active"
+    )
+    
+    # Relationships
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="payment_cards"
+    )
+    
+    # Constraints and Indexes
+    __table_args__ = (
+        CheckConstraint('LENGTH(card_last_four) = 4', name='check_card_last_four_length'),
+        CheckConstraint('LENGTH(expiry_month) = 2', name='check_expiry_month_length'),
+        CheckConstraint('LENGTH(expiry_year) = 4', name='check_expiry_year_length'),
+        Index('idx_payment_card_user_id', 'user_id'),
+        Index('idx_payment_card_token', 'card_token'),
+        Index('idx_payment_card_default', 'user_id', 'is_default'),
+    )
+    
+    @property
+    def is_expired(self) -> bool:
+        """Check if card is expired."""
+        now = datetime.now(timezone.utc)
+        try:
+            expiry_date = datetime(int(self.expiry_year), int(self.expiry_month), 1, tzinfo=timezone.utc)
+            return now >= expiry_date
+        except (ValueError, TypeError):
+            return True
+    
+    @property
+    def masked_number(self) -> str:
+        """Get masked card number."""
+        return f"****-****-****-{self.card_last_four}"
+    
+    def __str__(self) -> str:
+        """String representation."""
+        return f"{self.card_brand.upper()} {self.masked_number} ({self.card_type})"

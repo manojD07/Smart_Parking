@@ -1,6 +1,6 @@
 """User model for authentication and user management."""
 
-from sqlalchemy import Column, String, Boolean, Index
+from sqlalchemy import Column, String, Boolean, Index, DECIMAL
 from sqlalchemy.orm import relationship, Mapped
 from typing import TYPE_CHECKING, List
 
@@ -54,13 +54,19 @@ class User(BaseModel):
         nullable=False,
         doc="Whether user account is active"
     )
+    total_spent = Column(
+        DECIMAL(10, 2),
+        default=0.00,
+        nullable=False,
+        doc="Total amount spent by user"
+    )
     
     # Relationships
     bookings: Mapped[List["Booking"]] = relationship(
         "Booking", 
         back_populates="user",
         cascade="all, delete-orphan",
-        lazy="dynamic"
+        lazy="select"
     )
     
     # Indexes

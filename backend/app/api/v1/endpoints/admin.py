@@ -3,7 +3,7 @@
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, date
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_session
@@ -11,6 +11,8 @@ from app.services.booking import BookingService
 from app.services.parking import ParkingService
 from app.services.user import UserService
 from app.schemas.common import SuccessResponse
+from app.schemas.booking import BookingResponse
+from app.models.booking import BookingStatus
 from app.api.deps import get_current_admin_user
 from app.models.user import User
 from app.core.exceptions import create_http_exception, BaseApplicationError
@@ -53,6 +55,100 @@ async def get_admin_dashboard(
             "today_statistics": today_stats
         }
         
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
+@router.get("/bookings", response_model=List[BookingResponse])
+async def get_all_bookings(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
+    status: Optional[str] = Query(None, description="Filter by booking status"),
+    user_id: Optional[UUID] = Query(None, description="Filter by user ID"),
+    lot_id: Optional[UUID] = Query(None, description="Filter by parking lot ID"),
+    start_date: Optional[str] = Query(None, description="Filter bookings from date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Filter bookings to date (YYYY-MM-DD)"),
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Get all bookings for admin with filtering options."""
+    try:
+        booking_service = BookingService(session)
+        
+        # Convert status string to enum if provided
+        booking_status = BookingStatus(status) if status else None
+        
+        # Parse date strings if provided
+        start_datetime = None
+        end_datetime = None
+        
+        if start_date:
+            start_datetime = datetime.fromisoformat(start_date)
+        if end_date:
+            end_datetime = datetime.fromisoformat(end_date + "T23:59:59")
+        
+        # Get bookings with filters
+        bookings = await booking_service.get_all_bookings_admin(
+            skip=skip,
+            limit=limit,
+            status=booking_status,
+            user_id=user_id,
+            lot_id=lot_id,
+            start_date=start_datetime,
+            end_date=end_datetime
+        )
+        
+        return [BookingResponse.from_orm(booking) for booking in bookings]
+        
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
+@router.put("/bookings/{booking_id}/cancel", response_model=SuccessResponse)
+async def admin_cancel_booking(
+    booking_id: UUID,
+    reason: Optional[str] = Query(None, description="Reason for cancellation"),
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Admin cancel any booking."""
+    try:
+        booking_service = BookingService(session)
+        
+        success = await booking_service.admin_cancel_booking(booking_id, reason)
+        
+        if success:
+            return SuccessResponse(message="Booking cancelled successfully")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to cancel booking"
+            )
+            
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
+@router.post("/bookings/{booking_id}/refund", response_model=SuccessResponse)
+async def process_refund(
+    booking_id: UUID,
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Process refund for a cancelled booking."""
+    try:
+        booking_service = BookingService(session)
+        
+        success = await booking_service.process_refund(booking_id)
+        
+        if success:
+            return SuccessResponse(message="Refund processed successfully")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to process refund"
+            )
+            
     except BaseApplicationError as e:
         raise create_http_exception(e)
 

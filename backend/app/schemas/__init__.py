@@ -10,6 +10,9 @@ from app.schemas.parking import (
 from app.schemas.booking import BookingCreate, BookingUpdate, BookingResponse
 from app.schemas.auth import UserRegistration, TokenResponse, RefreshTokenRequest, ChangePasswordRequest
 from app.schemas.common import PaginatedResponse, ErrorResponse, SuccessResponse
+from app.schemas.payment import (
+    PaymentCreate, PaymentResponse, DummyPaymentRequest, DummyPaymentResponse
+)
 
 __all__ = [
     "UserCreate",

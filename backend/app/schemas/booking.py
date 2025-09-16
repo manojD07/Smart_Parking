@@ -49,10 +49,10 @@ class BookingResponse(BaseModel):
     created_at: datetime = Field(..., description="Booking creation time")
     updated_at: datetime = Field(..., description="Booking last update time")
     
-    # Related objects
-    lot: Optional[Dict[str, Any]] = Field(None, description="Parking lot details")
-    slot: Optional[Dict[str, Any]] = Field(None, description="Parking slot details")
-    user: Optional[Dict[str, Any]] = Field(None, description="User details")
+    # Related object names (simplified to avoid async loading issues)
+    lot_name: Optional[str] = Field(None, description="Parking lot name")
+    slot_number: Optional[str] = Field(None, description="Parking slot number")
+    user_email: Optional[str] = Field(None, description="User email")
     
     class Config:
         from_attributes = True

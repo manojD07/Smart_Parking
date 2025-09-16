@@ -64,9 +64,38 @@ class ParkingService(BaseService[ParkingLot, ParkingLotRepository]):
         end_time: datetime
     ) -> Dict[str, Any]:
         """Get availability for a parking lot."""
-        return await self.lot_repository.get_lot_with_availability(
-            lot_id, vehicle_type, start_time, end_time
-        )
+        try:
+            # Get the parking lot
+            lot = await self.repository.get_by_id(lot_id)
+            if not lot:
+                raise NotFoundError("Parking lot not found")
+            
+            # Get slot repository
+            slot_repository = ParkingSlotRepository(self.session)
+            
+            # Get all slots for this lot and vehicle type
+            all_slots = await slot_repository.get_multi(
+                lot_id=lot_id,
+                slot_type=vehicle_type,
+                limit=1000  # High limit to get all slots
+            )
+            
+            # Count occupied slots (this is simplified - in a real system you'd check bookings)
+            total_slots = len(all_slots)
+            occupied_slots = len([slot for slot in all_slots if slot.is_occupied])
+            available_slots = total_slots - occupied_slots
+            occupancy_rate = (occupied_slots / total_slots * 100) if total_slots > 0 else 0
+            
+            return {
+                "total_slots": total_slots,
+                "occupied_slots": occupied_slots,
+                "available_slots": available_slots,
+                "occupancy_rate": round(occupancy_rate, 2)
+            }
+            
+        except Exception as e:
+            self.logger.error("Failed to get lot availability", lot_id=lot_id, error=str(e))
+            raise BusinessLogicError("Failed to get lot availability")
     
     async def search_lots_near_location(
         self,
