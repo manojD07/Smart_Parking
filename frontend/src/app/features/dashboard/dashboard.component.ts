@@ -419,7 +419,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: () => {
-            this.loadDashboardData(); // Reload data
+            // Instant UI update - remove cancelled booking from list
+            this.activeBookings = this.activeBookings.filter((b: Booking) => b.id !== bookingId);
+            this.recentBookings = this.recentBookings.filter((b: Booking) => b.id !== bookingId);
+            
+            // Show success message
+            alert('Booking cancelled successfully! Your slot has been released.');
+            
+            // Reload data to ensure consistency
+            this.loadDashboardData();
           },
           error: (error) => {
             console.error('Error cancelling booking:', error);

@@ -208,7 +208,7 @@ class Booking(BaseModel):
     
     def can_cancel(self, min_notice_hours: int = 1) -> bool:
         """Check if booking can be cancelled."""
-        if self.status not in [BookingStatus.CONFIRMED.value, BookingStatus.ACTIVE.value]:
+        if self.status not in [BookingStatus.PENDING.value, BookingStatus.CONFIRMED.value, BookingStatus.ACTIVE.value]:
             return False
         
         # Allow cancellation if start time is more than min_notice_hours away

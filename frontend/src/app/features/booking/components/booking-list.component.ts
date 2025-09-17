@@ -415,7 +415,17 @@ export class BookingListComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: () => {
-            this.loadBookings(); // Reload bookings
+            // Instant UI update - mark booking as cancelled
+            const bookingIndex = this.bookings.findIndex(b => b.id === booking.id);
+            if (bookingIndex !== -1) {
+              this.bookings[bookingIndex].status = 'cancelled';
+            }
+            
+            // Show success message
+            alert('Booking cancelled successfully! Your slot has been released.');
+            
+            // Reload bookings to ensure consistency
+            this.loadBookings();
           },
           error: (error) => {
             alert('Failed to cancel booking: ' + error.message);

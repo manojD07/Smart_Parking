@@ -556,6 +556,7 @@ export class BookingDetailsComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: () => {
+            alert('Booking cancelled successfully! Your slot has been released and is now available for others.');
             this.router.navigate(['/bookings']);
           },
           error: (error) => {
