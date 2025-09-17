@@ -264,3 +264,193 @@ async def cleanup_expired_bookings(
         
     except BaseApplicationError as e:
         raise create_http_exception(e)
+
+
+@router.post("/parking/lots")
+async def create_parking_lot(
+    lot_data: dict,
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Create a new parking lot with automatic slot generation."""
+    try:
+        from app.models.parking import ParkingLot, ParkingSlot, VehicleType
+        from decimal import Decimal
+        
+        # Create parking lot
+        parking_lot = ParkingLot(
+            name=lot_data["name"],
+            address=lot_data["address"],
+            latitude=float(lot_data["latitude"]),
+            longitude=float(lot_data["longitude"]),
+            total_car_slots=int(lot_data["total_car_slots"]),
+            total_bike_slots=int(lot_data["total_bike_slots"]),
+            hourly_rate_car=Decimal(str(lot_data["hourly_rate_car"])),
+            hourly_rate_bike=Decimal(str(lot_data["hourly_rate_bike"])),
+            is_active=True
+        )
+        
+        session.add(parking_lot)
+        await session.commit()
+        await session.refresh(parking_lot)
+        
+        # Auto-generate parking slots
+        slots = []
+        
+        # Create car slots
+        for i in range(1, parking_lot.total_car_slots + 1):
+            slot = ParkingSlot(
+                lot_id=parking_lot.id,
+                slot_number=f"C{i:03d}",
+                slot_type=VehicleType.CAR,
+                is_occupied=False,
+                is_reserved=False
+            )
+            slots.append(slot)
+        
+        # Create bike slots
+        for i in range(1, parking_lot.total_bike_slots + 1):
+            slot = ParkingSlot(
+                lot_id=parking_lot.id,
+                slot_number=f"B{i:03d}",
+                slot_type=VehicleType.BIKE,
+                is_occupied=False,
+                is_reserved=False
+            )
+            slots.append(slot)
+        
+        session.add_all(slots)
+        await session.commit()
+        
+        return {
+            "success": True,
+            "message": f"Created parking lot '{parking_lot.name}' with {len(slots)} slots",
+            "lot_id": str(parking_lot.id),
+            "car_slots": parking_lot.total_car_slots,
+            "bike_slots": parking_lot.total_bike_slots,
+            "total_slots": len(slots)
+        }
+        
+    except Exception as e:
+        await session.rollback()
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/parking/lots/{lot_id}/slots")
+async def add_parking_slots(
+    lot_id: UUID,
+    slot_data: dict,
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Add parking slots to an existing lot."""
+    try:
+        from app.models.parking import ParkingSlot, VehicleType, ParkingLot
+        from sqlalchemy import select
+        
+        # Verify lot exists
+        lot_result = await session.execute(
+            select(ParkingLot).where(ParkingLot.id == lot_id)
+        )
+        lot = lot_result.scalar_one_or_none()
+        
+        if not lot:
+            return {"success": False, "error": "Parking lot not found"}
+        
+        # Get existing slots count
+        existing_result = await session.execute(
+            select(ParkingSlot).where(ParkingSlot.lot_id == lot_id)
+        )
+        existing_slots = list(existing_result.scalars().all())
+        
+        # Determine next slot numbers
+        car_slots = [s for s in existing_slots if s.slot_type == VehicleType.CAR]
+        bike_slots = [s for s in existing_slots if s.slot_type == VehicleType.BIKE]
+        
+        next_car_num = len(car_slots) + 1
+        next_bike_num = len(bike_slots) + 1
+        
+        new_slots = []
+        
+        # Add car slots if requested
+        car_count = slot_data.get("car_slots", 0)
+        if car_count > 0:
+            for i in range(car_count):
+                slot = ParkingSlot(
+                    lot_id=lot_id,
+                    slot_number=f"C{next_car_num + i:03d}",
+                    slot_type=VehicleType.CAR,
+                    is_occupied=False,
+                    is_reserved=False
+                )
+                new_slots.append(slot)
+        
+        # Add bike slots if requested
+        bike_count = slot_data.get("bike_slots", 0)
+        if bike_count > 0:
+            for i in range(bike_count):
+                slot = ParkingSlot(
+                    lot_id=lot_id,
+                    slot_number=f"B{next_bike_num + i:03d}",
+                    slot_type=VehicleType.BIKE,
+                    is_occupied=False,
+                    is_reserved=False
+                )
+                new_slots.append(slot)
+        
+        if new_slots:
+            session.add_all(new_slots)
+            
+            # Update lot totals
+            lot.total_car_slots += car_count
+            lot.total_bike_slots += bike_count
+            
+            await session.commit()
+            
+            return {
+                "success": True,
+                "message": f"Added {len(new_slots)} slots to {lot.name}",
+                "car_slots_added": car_count,
+                "bike_slots_added": bike_count,
+                "total_slots_now": len(existing_slots) + len(new_slots)
+            }
+        else:
+            return {"success": False, "error": "No slots specified to add"}
+        
+    except Exception as e:
+        await session.rollback()
+        return {"success": False, "error": str(e)}
+
+@router.get("/debug/lots/{lot_id}/slots")
+async def debug_lot_slots(
+    lot_id: UUID,
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Debug endpoint to check slot data directly."""
+    try:
+        from app.models.parking import ParkingSlot
+        from sqlalchemy import select
+        
+        # Direct database query
+        result = await session.execute(
+            select(ParkingSlot).where(ParkingSlot.lot_id == lot_id)
+        )
+        slots = list(result.scalars().all())
+        
+        return {
+            "lot_id": str(lot_id),
+            "slots_found": len(slots),
+            "slots": [
+                {
+                    "id": str(s.id),
+                    "slot_number": s.slot_number,
+                    "slot_type": s.slot_type.value if hasattr(s.slot_type, 'value') else str(s.slot_type),
+                    "is_occupied": s.is_occupied,
+                    "is_reserved": s.is_reserved
+                } for s in slots[:5]  # Show first 5 slots
+            ]
+        }
+        
+    except Exception as e:
+        return {"error": str(e)}

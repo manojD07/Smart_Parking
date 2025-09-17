@@ -112,6 +112,7 @@ class ParkingService(BaseService[ParkingLot, ParkingLotRepository]):
     
     async def get_lot_slots(self, lot_id: UUID, skip: int = 0, limit: int = 100, **filters) -> List[ParkingSlot]:
         """Get slots for a parking lot."""
+        # Note: filters are currently ignored - this might be the issue
         return await self.slot_repository.get_slots_by_lot(lot_id, skip, limit)
     
     async def create_parking_slot(self, lot_id: UUID, slot_number: str, slot_type: str) -> ParkingSlot:

@@ -21,6 +21,9 @@ from app.api.deps import get_current_active_user, get_current_admin_user
 from app.models.user import User
 from app.models.parking import VehicleType
 from app.core.exceptions import create_http_exception, BaseApplicationError
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -113,6 +116,7 @@ async def get_lot_slots(
     status: Optional[str] = Query(None, description="Filter by slot status"),
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(50, ge=1, le=200, description="Number of items to return"),
+    current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get slots for a parking lot."""
@@ -131,6 +135,9 @@ async def get_lot_slots(
             limit=limit,
             **filters
         )
+        
+        # Debug: Log the actual slots returned
+        logger.info(f"Slots API: Found {len(slots)} slots for lot {lot_id}")
         
         return [ParkingSlotResponse.from_orm(slot) for slot in slots]
         
