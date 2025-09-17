@@ -1,7 +1,7 @@
 """User repository for user-specific database operations."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_, or_, desc
 from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from uuid import UUID
@@ -154,6 +154,53 @@ class UserRepository(BaseRepository[User]):
             
         except Exception as e:
             self.logger.error("Failed to check email availability", email=email, error=str(e))
+            raise
+    
+    async def get_all_users_admin(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None,
+        is_admin: Optional[bool] = None,
+        is_active: Optional[bool] = None
+    ) -> List[User]:
+        """Get all users for admin with filtering options."""
+        try:
+            query = select(User)
+            
+            # Apply filters
+            filters = []
+            
+            if search:
+                search_pattern = f"%{search}%"
+                filters.append(
+                    or_(
+                        User.first_name.ilike(search_pattern),
+                        User.last_name.ilike(search_pattern),
+                        User.email.ilike(search_pattern)
+                    )
+                )
+            
+            if is_admin is not None:
+                filters.append(User.is_admin == is_admin)
+            
+            if is_active is not None:
+                filters.append(User.is_active == is_active)
+            
+            if filters:
+                query = query.where(and_(*filters))
+            
+            # Order by most recent first
+            query = query.order_by(desc(User.created_at))
+            
+            # Apply pagination
+            query = query.offset(skip).limit(limit)
+            
+            result = await self.session.execute(query)
+            return list(result.scalars().all())
+            
+        except Exception as e:
+            self.logger.error("Failed to get all users for admin", error=str(e))
             raise
     
     def _add_relationship_loading(self, query):

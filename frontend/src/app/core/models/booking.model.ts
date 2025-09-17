@@ -23,6 +23,10 @@ export interface Booking {
   check_out_time?: string;
   created_at: string;
   updated_at: string;
+  // Related object data
+  lot_name?: string;
+  slot_number?: string;
+  user_email?: string;
   lot?: any;
   slot?: any;
   user?: any;

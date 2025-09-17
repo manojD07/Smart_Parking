@@ -60,6 +60,31 @@ class BookingResponse(BaseModel):
             datetime: lambda v: v.isoformat(),
             Decimal: lambda v: float(v)
         }
+    
+    @classmethod
+    def from_orm(cls, booking):
+        """Create BookingResponse from ORM booking object with related data."""
+        return cls(
+            id=booking.id,
+            user_id=booking.user_id,
+            lot_id=booking.lot_id,
+            slot_id=booking.slot_id,
+            vehicle_type=booking.vehicle_type,
+            vehicle_number=booking.vehicle_number,
+            start_time=booking.start_time,
+            end_time=booking.end_time,
+            total_amount=booking.total_amount,
+            status=booking.status,
+            booking_reference=booking.booking_reference,
+            check_in_time=booking.check_in_time,
+            check_out_time=booking.check_out_time,
+            created_at=booking.created_at,
+            updated_at=booking.updated_at,
+            # Populate related object data
+            lot_name=booking.lot.name if booking.lot else None,
+            slot_number=booking.slot.slot_number if booking.slot else None,
+            user_email=booking.user.email if booking.user else None
+        )
 
 
 class PricingPreviewRequest(BaseModel):

@@ -46,7 +46,7 @@ export class AdminService extends BaseApiService {
 
   // Dashboard & Analytics
   getAdminStats(): Observable<AdminStats> {
-    return this.get<AdminStats>('/admin/stats');
+    return this.get<AdminStats>('/admin/dashboard');
   }
 
   getSystemAnalytics(params?: {

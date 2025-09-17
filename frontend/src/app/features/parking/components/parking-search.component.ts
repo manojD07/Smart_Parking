@@ -24,21 +24,43 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
         <div class="col-12">
           <div class="card">
             <div class="card-header">
-              <h5 class="mb-0">
-                <i class="fas fa-search me-2"></i>
-                Search Criteria
-              </h5>
+              <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                  <i class="fas fa-search me-2"></i>
+                  Search Criteria
+                </h5>
+                <button 
+                  class="btn btn-sm btn-outline-secondary"
+                  type="button"
+                  (click)="toggleSearchForm()"
+                  [attr.aria-expanded]="!searchFormCollapsed"
+                  aria-controls="searchFormCollapse"
+                >
+                  <i class="fas" [class.fa-chevron-up]="!searchFormCollapsed" [class.fa-chevron-down]="searchFormCollapsed"></i>
+                  {{ searchFormCollapsed ? 'Expand' : 'Minimize' }}
+                </button>
+              </div>
             </div>
-            <div class="card-body">
+            <div class="card-body collapse" [class.show]="!searchFormCollapsed" id="searchFormCollapse">
+              <!-- Initial Vehicle Type Reminder -->
+              <div class="alert alert-warning" *ngIf="!searchForm.get('vehicleType')?.value && !hasSearched">
+                <i class="fas fa-car me-2"></i>
+                <strong>Start Here:</strong> Please select your vehicle type first to see accurate parking rates and availability for your specific vehicle.
+              </div>
+
               <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="vehicleType" class="form-label">Vehicle Type</label>
+                    <label for="vehicleType" class="form-label">
+                      Vehicle Type <span class="text-danger">*</span>
+                      <small class="text-muted">(Required for accurate pricing)</small>
+                    </label>
                     <select
-                      class="form-select"
+                      class="form-select form-select-lg-mobile"
                       id="vehicleType"
                       formControlName="vehicleType"
                       [class.is-invalid]="isFieldInvalid('vehicleType')"
+                      (change)="onVehicleTypeChange()"
                     >
                       <option value="">Select vehicle type</option>
                       <option value="car">Car</option>
@@ -49,6 +71,18 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
                     </select>
                     <div class="invalid-feedback" *ngIf="isFieldInvalid('vehicleType')">
                       Please select a vehicle type
+                    </div>
+                    
+                    <!-- Warning when no vehicle type selected -->
+                    <div class="form-text text-danger" *ngIf="!searchForm.get('vehicleType')?.value && (searchForm.get('vehicleType')?.touched || hasSearched)">
+                      <i class="fas fa-exclamation-circle me-1"></i>
+                      <strong>Required:</strong> Please select your vehicle type to see accurate pricing and availability.
+                    </div>
+                    
+                    <!-- Info when vehicle type is selected -->
+                    <div class="form-text text-info" *ngIf="searchForm.get('vehicleType')?.value">
+                      <i class="fas fa-info-circle me-1"></i>
+                      <strong>Good:</strong> Vehicle type selected. You'll see accurate rates for {{ searchForm.get('vehicleType')?.value | titlecase }} parking.
                     </div>
                   </div>
 
@@ -176,11 +210,25 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
               <div class="row mb-2">
                 <div class="col-6">
                   <small class="text-muted">Car Slots:</small>
-                  <div class="fw-bold">{{ lot.total_car_slots }}</div>
+                  <div class="fw-bold" [class.text-success]="lot.available_car_slots !== undefined">
+                    <span *ngIf="lot.available_car_slots !== undefined">
+                      {{ lot.available_car_slots }} available
+                    </span>
+                    <span *ngIf="lot.available_car_slots === undefined">
+                      {{ lot.total_car_slots }} total
+                    </span>
+                  </div>
                 </div>
                 <div class="col-6">
                   <small class="text-muted">Bike Slots:</small>
-                  <div class="fw-bold">{{ lot.total_bike_slots }}</div>
+                  <div class="fw-bold" [class.text-success]="lot.available_bike_slots !== undefined">
+                    <span *ngIf="lot.available_bike_slots !== undefined">
+                      {{ lot.available_bike_slots }} available
+                    </span>
+                    <span *ngIf="lot.available_bike_slots === undefined">
+                      {{ lot.total_bike_slots }} total
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -239,7 +287,27 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
         </div>
       </div>
     </div>
-  `
+  `,
+  styles: [`
+    @media (max-width: 768px) {
+      .form-select-lg-mobile {
+        font-size: 1.1rem;
+        padding: 0.75rem 1rem;
+        min-height: 48px;
+      }
+      
+      .form-label {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+      }
+      
+      .btn {
+        min-height: 48px;
+        font-size: 1rem;
+      }
+    }
+  `]
 })
 export class ParkingSearchComponent implements OnInit, OnDestroy {
   searchForm: FormGroup;
@@ -249,6 +317,7 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
   gettingLocation = false;
   hasSearched = false;
   errorMessage = '';
+  searchFormCollapsed = false;
   
   private destroy$ = new Subject<void>();
 
@@ -308,6 +377,13 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
   }
 
   onSearch(): void {
+    // Check if vehicle type is selected first
+    if (!this.searchForm.get('vehicleType')?.value) {
+      this.errorMessage = 'Please select a vehicle type before searching. This helps us show you accurate pricing and availability.';
+      this.markFormGroupTouched();
+      return;
+    }
+    
     if (this.searchForm.valid) {
       this.searching = true;
       this.errorMessage = '';
@@ -320,6 +396,10 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
           next: (lots) => {
             this.searchResults = lots;
             this.searching = false;
+            // Auto-collapse search form after successful search
+            if (lots.length > 0) {
+              this.searchFormCollapsed = true;
+            }
           },
           error: (error) => {
             this.errorMessage = error.message || 'Failed to search parking lots';
@@ -368,6 +448,17 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
       const control = this.searchForm.get(key);
       control?.markAsTouched();
     });
+  }
+
+  toggleSearchForm(): void {
+    this.searchFormCollapsed = !this.searchFormCollapsed;
+  }
+
+  onVehicleTypeChange(): void {
+    // Clear error message when vehicle type is selected
+    if (this.searchForm.get('vehicleType')?.value) {
+      this.errorMessage = '';
+    }
   }
 
   private formatDateTimeLocal(date: Date): string {

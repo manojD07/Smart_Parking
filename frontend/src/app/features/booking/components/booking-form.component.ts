@@ -6,21 +6,20 @@ import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { ParkingService } from '../../parking/services/parking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
-import { PaymentFormComponent, PaymentResult } from '../../payment/components/payment-form.component';
 import { ParkingLot } from '../../../core/models/parking.model';
 import { PricingPreviewResponse, Booking } from '../../../core/models/booking.model';
 
 @Component({
   selector: 'app-booking-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LoadingComponent, PaymentFormComponent],
+  imports: [CommonModule, ReactiveFormsModule, LoadingComponent],
   template: `
     <div class="container mt-4">
       <div class="row">
         <div class="col-12">
           <h1 class="h2 mb-4">
             <i class="fas fa-ticket-alt me-2"></i>
-            {{ getStepTitle() }}
+            Book Parking Space
           </h1>
         </div>
       </div>
@@ -283,75 +282,7 @@ import { PricingPreviewResponse, Booking } from '../../../core/models/booking.mo
         </div>
       </div>
 
-      <!-- Payment Step -->
-      <div *ngIf="currentStep === 'payment' && createdBooking">
-        <app-payment-form
-          [bookingId]="createdBooking.id"
-          [bookingReference]="createdBooking.booking_reference"
-          [amount]="createdBooking.total_amount"
-          (paymentSuccess)="onPaymentSuccess($event)"
-          (paymentCancel)="onPaymentCancel()"
-        ></app-payment-form>
-      </div>
 
-      <!-- Confirmation Step -->
-      <div *ngIf="currentStep === 'confirmation' && createdBooking && paymentResult">
-        <div class="row">
-          <div class="col-md-8 mx-auto">
-            <div class="card border-success">
-              <div class="card-header bg-success text-white text-center">
-                <h4 class="mb-0">
-                  <i class="fas fa-check-circle me-2"></i>
-                  Booking Confirmed!
-                </h4>
-              </div>
-              <div class="card-body">
-                <div class="text-center mb-4">
-                  <i class="fas fa-ticket-alt text-success" style="font-size: 4rem;"></i>
-                  <h5 class="mt-3">Your parking space has been successfully booked!</h5>
-                </div>
-
-                <div class="row">
-                  <div class="col-md-6">
-                    <h6>Booking Details</h6>
-                    <ul class="list-unstyled">
-                      <li><strong>Reference:</strong> {{ createdBooking.booking_reference }}</li>
-                      <li><strong>Parking Lot:</strong> {{ selectedLot?.name }}</li>
-                      <li><strong>Vehicle:</strong> {{ createdBooking.vehicle_type | titlecase }} - {{ createdBooking.vehicle_number }}</li>
-                      <li><strong>Duration:</strong> {{ formatDateTime(createdBooking.start_time) }} to {{ formatDateTime(createdBooking.end_time) }}</li>
-                    </ul>
-                  </div>
-                  <div class="col-md-6">
-                    <h6>Payment Details</h6>
-                    <ul class="list-unstyled">
-                      <li><strong>Transaction ID:</strong> {{ paymentResult.transaction_id }}</li>
-                      <li><strong>Amount Paid:</strong> ₹{{ createdBooking.total_amount | number:'1.2-2' }}</li>
-                      <li><strong>Payment Status:</strong> <span class="badge bg-success">Paid</span></li>
-                      <li><strong>Booking Status:</strong> <span class="badge bg-info">Confirmed</span></li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div class="alert alert-info mt-3">
-                  <i class="fas fa-info-circle me-2"></i>
-                  <strong>Important:</strong> Please arrive on time for your booking. You can check in using your booking reference: <strong>{{ createdBooking.booking_reference }}</strong>
-                </div>
-
-                <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-                  <button class="btn btn-primary" (click)="viewMyBookings()">
-                    <i class="fas fa-list me-2"></i>
-                    View My Bookings
-                  </button>
-                  <button class="btn btn-outline-secondary" (click)="bookAnother()">
-                    <i class="fas fa-plus me-2"></i>
-                    Book Another
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   `
 })
@@ -364,10 +295,6 @@ export class BookingFormComponent implements OnInit, OnDestroy {
   submitting = false;
   errorMessage = '';
   
-  // Payment flow
-  currentStep: 'booking' | 'payment' | 'confirmation' = 'booking';
-  createdBooking: Booking | null = null;
-  paymentResult: PaymentResult | null = null;
   
   private destroy$ = new Subject<void>();
 
@@ -535,8 +462,8 @@ export class BookingFormComponent implements OnInit, OnDestroy {
         .subscribe({
           next: (booking) => {
             this.submitting = false;
-            this.createdBooking = booking;
-            this.currentStep = 'payment';
+            // Navigate to payment page instead of showing inline payment form
+            this.router.navigate(['/payment', booking.id]);
           },
           error: (error) => {
             this.errorMessage = error.message || 'Failed to create booking. Please try again.';
@@ -564,39 +491,7 @@ export class BookingFormComponent implements OnInit, OnDestroy {
     });
   }
 
-  getStepTitle(): string {
-    switch (this.currentStep) {
-      case 'booking':
-        return 'Book Parking Space';
-      case 'payment':
-        return 'Complete Payment';
-      case 'confirmation':
-        return 'Booking Confirmed';
-      default:
-        return 'Book Parking Space';
-    }
-  }
-
-  onPaymentSuccess(paymentResult: PaymentResult): void {
-    this.paymentResult = paymentResult;
-    this.currentStep = 'confirmation';
-  }
-
-  onPaymentCancel(): void {
-    // Go back to booking step or dashboard
-    this.currentStep = 'booking';
-    this.createdBooking = null;
-  }
-
   formatDateTime(dateTime: string): string {
     return new Date(dateTime).toLocaleString();
-  }
-
-  viewMyBookings(): void {
-    this.router.navigate(['/dashboard']);
-  }
-
-  bookAnother(): void {
-    this.router.navigate(['/parking/search']);
   }
 }

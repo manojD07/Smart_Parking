@@ -202,7 +202,7 @@ import { Booking } from '../../../core/models/booking.model';
                         <div>
                           <strong>{{ booking.lot?.name }}</strong>
                           <br>
-                          <small class="text-muted">Slot: {{ booking.slot?.slot_number || 'TBA' }}</small>
+                          <small class="text-muted">Slot: {{ booking.slot_number || 'TBA' }}</small>
                         </div>
                       </td>
                       <td>

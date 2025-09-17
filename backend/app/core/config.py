@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     default_page_size: int = Field(default=20, description="Default pagination size")
     max_page_size: int = Field(default=100, description="Maximum pagination size")
     
+    
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

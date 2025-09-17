@@ -42,6 +42,23 @@ class UserService(BaseService[User, UserRepository]):
         """Activate user account."""
         return await self.user_repository.activate_user(user_id)
     
+    async def get_all_users_admin(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None,
+        is_admin: Optional[bool] = None,
+        is_active: Optional[bool] = None
+    ) -> List[User]:
+        """Get all users for admin with filtering options."""
+        return await self.user_repository.get_all_users_admin(
+            skip=skip,
+            limit=limit,
+            search=search,
+            is_admin=is_admin,
+            is_active=is_active
+        )
+    
     def _get_entity_name(self) -> str:
         """Get entity name for base service."""
         return "User"

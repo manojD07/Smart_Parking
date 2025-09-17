@@ -10,23 +10,10 @@ import { RouterModule } from '@angular/router';
     <div class="container mt-5">
       <div class="row justify-content-center">
         <div class="col-md-6 text-center">
-          <div class="error-page">
-            <h1 class="display-1 text-primary">404</h1>
-            <h2 class="h4 mb-3">Page Not Found</h2>
-            <p class="text-muted mb-4">
-              The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
-            </p>
-            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-              <button class="btn btn-primary me-md-2" routerLink="/dashboard">
-                <i class="fas fa-home me-2"></i>
-                Go to Dashboard
-              </button>
-              <button class="btn btn-outline-secondary" onclick="history.back()">
-                <i class="fas fa-arrow-left me-2"></i>
-                Go Back
-              </button>
-            </div>
-          </div>
+          <h1 class="display-1">404</h1>
+          <h2>Page Not Found</h2>
+          <p class="lead">The page you're looking for doesn't exist.</p>
+          <a routerLink="/" class="btn btn-primary">Go Home</a>
         </div>
       </div>
     </div>

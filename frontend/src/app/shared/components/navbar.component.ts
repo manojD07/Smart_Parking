@@ -10,9 +10,9 @@ import { User } from '../../core/models/user.model';
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <nav class="navbar navbar-expand-lg navbar-dark bg-gradient-primary">
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #4e73df 0%, #224abe 100%) !important; min-height: 60px;">
       <div class="container">
-        <a class="navbar-brand fw-bold" routerLink="/">
+        <a class="navbar-brand fw-bold brand-link" routerLink="/">
           <i class="fas fa-parking me-2"></i>
           Smart Parking
         </a>
@@ -33,7 +33,7 @@ import { User } from '../../core/models/user.model';
           <ul class="navbar-nav me-auto">
             <!-- Admin Menu Items -->
             <li class="nav-item" *ngIf="isAuthenticated && currentUser?.is_admin">
-              <a class="nav-link" routerLink="/admin/dashboard" routerLinkActive="active">
+              <a class="nav-link" routerLink="/admin/dashboard" routerLinkActive="active" (click)="collapseNavbar()">
                 <i class="fas fa-tachometer-alt me-1"></i>
                 Dashboard
               </a>
@@ -68,22 +68,28 @@ import { User } from '../../core/models/user.model';
                 Check-In
               </a>
             </li>
+            <li class="nav-item" *ngIf="isAuthenticated && currentUser?.is_admin">
+              <a class="nav-link" routerLink="/admin/pricing-rules" routerLinkActive="active" (click)="collapseNavbar()">
+                <i class="fas fa-tags me-1"></i>
+                Pricing Rules
+              </a>
+            </li>
 
             <!-- Regular User Menu Items -->
             <li class="nav-item" *ngIf="isAuthenticated && !currentUser?.is_admin">
-              <a class="nav-link" routerLink="/user-dashboard" routerLinkActive="active">
+              <a class="nav-link" routerLink="/user-dashboard" routerLinkActive="active" (click)="collapseNavbar()">
                 <i class="fas fa-tachometer-alt me-1"></i>
                 Dashboard
               </a>
             </li>
             <li class="nav-item" *ngIf="isAuthenticated && !currentUser?.is_admin">
-              <a class="nav-link" routerLink="/parking" routerLinkActive="active">
+              <a class="nav-link" routerLink="/parking" routerLinkActive="active" (click)="collapseNavbar()">
                 <i class="fas fa-map-marker-alt me-1"></i>
                 Find Parking
               </a>
             </li>
             <li class="nav-item" *ngIf="isAuthenticated && !currentUser?.is_admin">
-              <a class="nav-link" routerLink="/bookings" routerLinkActive="active">
+              <a class="nav-link" routerLink="/bookings" routerLinkActive="active" (click)="collapseNavbar()">
                 <i class="fas fa-ticket-alt me-1"></i>
                 My Bookings
               </a>
@@ -153,7 +159,55 @@ import { User } from '../../core/models/user.model';
         </div>
       </div>
     </nav>
-  `
+  `,
+  styles: [`
+    .brand-link {
+      color: #ffffff !important;
+      font-size: 1.25rem;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+      text-decoration: none !important;
+      transition: all 0.3s ease;
+    }
+
+    .brand-link:hover {
+      color: #f8f9fa !important;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
+      transform: translateY(-1px);
+    }
+
+    .brand-link i {
+      color: #ffffff !important;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    .navbar {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Ensure navbar brand is always visible */
+    .navbar-brand {
+      z-index: 1050;
+      position: relative;
+    }
+
+    /* High contrast fallback */
+    @media (prefers-contrast: high) {
+      .brand-link {
+        color: #ffffff !important;
+        background-color: rgba(0, 0, 0, 0.3);
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+      }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      .brand-link {
+        color: #ffffff !important;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+      }
+    }
+  `]
 })
 export class NavbarComponent implements OnDestroy {
   currentUser: User | null = null;
@@ -182,6 +236,15 @@ export class NavbarComponent implements OnDestroy {
     this.destroy$.complete();
   }
 
+
+  collapseNavbar(): void {
+    // Collapse the mobile menu when a menu item is clicked
+    const navbarCollapse = document.getElementById('navbarNav');
+    if (navbarCollapse && navbarCollapse.classList.contains('show')) {
+      const bsCollapse = new (window as any).bootstrap.Collapse(navbarCollapse);
+      bsCollapse.hide();
+    }
+  }
 
   logout(event: Event): void {
     event.preventDefault();

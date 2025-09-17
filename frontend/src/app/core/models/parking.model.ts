@@ -21,6 +21,8 @@ export interface ParkingLot {
   longitude: number;
   total_car_slots: number;
   total_bike_slots: number;
+  available_car_slots?: number;
+  available_bike_slots?: number;
   hourly_rate_car: number;
   hourly_rate_bike: number;
   is_active: boolean;

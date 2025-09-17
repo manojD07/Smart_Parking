@@ -217,6 +217,35 @@ async def get_user_statistics(
         raise create_http_exception(e)
 
 
+@router.get("/users")
+async def get_all_users(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
+    search: Optional[str] = Query(None, description="Search term for email, first_name, or last_name"),
+    is_admin: Optional[bool] = Query(None, description="Filter by admin status"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Get all users for admin with filtering options."""
+    try:
+        user_service = UserService(session)
+        
+        # Get users with filters
+        users = await user_service.get_all_users_admin(
+            skip=skip,
+            limit=limit,
+            search=search,
+            is_admin=is_admin,
+            is_active=is_active
+        )
+        
+        return users
+        
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
 @router.post("/maintenance/cleanup-expired", response_model=SuccessResponse)
 async def cleanup_expired_bookings(
     current_user: User = Depends(get_current_admin_user),

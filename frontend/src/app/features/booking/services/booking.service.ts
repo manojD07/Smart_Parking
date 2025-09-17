@@ -44,6 +44,7 @@ export class BookingService extends BaseApiService {
     return this.get<Booking>(`/bookings/reference/${reference}`);
   }
 
+
   // Update booking
   updateBooking(bookingId: string, updateData: BookingUpdate): Observable<Booking> {
     return this.put<Booking>(`/bookings/${bookingId}`, updateData);

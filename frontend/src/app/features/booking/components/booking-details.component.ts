@@ -75,7 +75,7 @@ import { Booking } from '../../../core/models/booking.model';
                   <div class="col-md-6">
                     <small class="text-muted">Slot Number:</small>
                     <div class="fw-bold">
-                      {{ booking.slot?.slot_number || 'Will be assigned on arrival' }}
+                      {{ booking.slot_number || 'Will be assigned on arrival' }}
                     </div>
                   </div>
                   <div class="col-md-6">

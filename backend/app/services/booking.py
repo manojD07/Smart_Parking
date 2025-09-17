@@ -83,7 +83,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                 # Generate booking reference
                 booking_reference = await self._generate_unique_booking_reference()
                 
-                # Create booking
+                # Create booking with slot assignment
                 booking = await self.booking_repository.create(
                     user_id=user_id,
                     lot_id=lot_id,
@@ -122,6 +122,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                     booking_id=booking.id,
                     user_id=user_id,
                     slot_id=slot.id,
+                    slot_number=slot.slot_number,
                     vehicle_type=vehicle_type.value
                 )
                 
@@ -194,6 +195,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                 
                 if not booking.can_check_in:
                     raise BusinessLogicError("Cannot check in at this time")
+                
                 
                 booking.check_in()
                 
@@ -549,6 +551,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
             # This shouldn't happen if validation is correct
             raise BusinessLogicError("Car slot is already fully occupied by bikes")
     
+
     async def _count_active_allocations_for_slot(
         self,
         slot_id: UUID,

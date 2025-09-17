@@ -63,6 +63,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/booking/components/booking-details.component').then(m => m.BookingDetailsComponent)
   },
   {
+    path: 'payment/:bookingId',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/payment/components/payment-page.component').then(m => m.PaymentPageComponent)
+  },
+  {
     path: 'profile',
     canActivate: [authGuard],
     loadComponent: () => import('./features/profile/profile.component').then(m => m.ProfileComponent)
@@ -99,6 +104,10 @@ export const routes: Routes = [
       {
         path: 'checkin',
         loadComponent: () => import('./features/admin/components/admin-checkin.component').then(m => m.AdminCheckinComponent)
+      },
+      {
+        path: 'pricing-rules',
+        loadComponent: () => import('./features/admin/components/admin-pricing-rules.component').then(m => m.AdminPricingRulesComponent)
       }
     ]
   },

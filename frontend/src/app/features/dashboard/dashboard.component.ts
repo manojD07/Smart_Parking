@@ -140,6 +140,16 @@ import { ParkingLot } from '../../core/models/parking.model';
                             <i class="fas fa-car me-1"></i>{{ booking.vehicle_number }} ({{ booking.vehicle_type }})
                           </small>
                         </p>
+                        <p class="card-text" *ngIf="booking.slot_number">
+                          <small class="text-muted">
+                            <i class="fas fa-parking me-1"></i>Slot: <strong>{{ booking.slot_number }}</strong>
+                          </small>
+                        </p>
+                        <p class="card-text" *ngIf="!booking.slot_number && booking.status === 'pending'">
+                          <small class="text-warning">
+                            <i class="fas fa-clock me-1"></i>Slot will be assigned at check-in
+                          </small>
+                        </p>
                         <p class="card-text">
                           <i class="fas fa-clock me-1"></i>
                           {{ formatDateTime(booking.start_time) }} - {{ formatDateTime(booking.end_time) }}

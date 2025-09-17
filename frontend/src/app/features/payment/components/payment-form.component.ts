@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { PaymentService } from '../services/payment.service';
-import { LoadingComponent } from '../../../shared/components/loading.component';
 
 export interface PaymentMethod {
   value: string;
@@ -31,7 +30,7 @@ export interface PaymentResult {
 @Component({
   selector: 'app-payment-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, LoadingComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule],
   template: `
     <div class="payment-form">
       <div class="card">
