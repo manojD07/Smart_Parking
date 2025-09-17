@@ -478,9 +478,10 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         start_time = to_ist(start_time) if start_time.tzinfo else ensure_ist(start_time)
         end_time = to_ist(end_time) if end_time.tzinfo else ensure_ist(end_time)
         
-        # Validate time range
-        if start_time <= now:
-            raise InvalidTimeRangeError("Booking start time must be in the future")
+        # Validate time range - allow 5 minutes grace period for user convenience
+        grace_period = timedelta(minutes=5)
+        if start_time <= (now - grace_period):
+            raise InvalidTimeRangeError("Booking start time cannot be more than 5 minutes in the past")
         if end_time <= start_time:
             raise InvalidTimeRangeError("End time must be after start time")
         

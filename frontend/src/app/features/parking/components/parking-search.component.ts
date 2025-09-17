@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { ParkingService } from '../services/parking.service';
+import { BookingService } from '../../booking/services/booking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
 import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/models/parking.model';
 
@@ -246,6 +247,39 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
                 </div>
               </div>
 
+              <!-- Dynamic Pricing Strategy -->
+              <div class="mb-3" *ngIf="getPricingInfo(lot)">
+                <div class="card bg-light">
+                  <div class="card-body py-2">
+                    <h6 class="card-title mb-2">
+                      <i class="fas fa-tags me-1"></i>
+                      Dynamic Pricing for Your Search
+                    </h6>
+                    <div class="row">
+                      <div class="col-6">
+                        <small class="text-muted">Your Rate:</small>
+                        <div class="fw-bold text-success">
+                          \${{ getPricingInfo(lot)?.average_rate?.toFixed(2) }}/hr
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <small class="text-muted">Total Cost:</small>
+                        <div class="fw-bold text-primary">
+                          \${{ getPricingInfo(lot)?.total_amount?.toFixed(2) }}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="mt-2" *ngIf="getPricingInfo(lot)?.pricing_breakdown?.length > 0">
+                      <small class="text-muted">Pricing Rules Applied:</small>
+                      <div *ngFor="let rule of getPricingInfo(lot)?.pricing_breakdown" class="small">
+                        <span class="badge bg-info me-1">{{ rule.rule_name || 'Standard Rate' }}</span>
+                        <span *ngIf="rule.multiplier">({{ rule.multiplier }}x)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Distance -->
               <div class="mb-3" *ngIf="userLocation && lot.latitude && lot.longitude">
                 <small class="text-muted">
@@ -333,6 +367,7 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private parkingService: ParkingService,
+    private bookingService: BookingService,
     private router: Router
   ) {
     this.searchForm = this.createSearchForm();
@@ -413,12 +448,8 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (lots) => {
-            this.searchResults = lots;
-            this.searching = false;
-            // Auto-collapse search form after successful search
-            if (lots.length > 0) {
-              this.searchFormCollapsed = true;
-            }
+            // Enhance each lot with availability and pricing data
+            this.enhanceLotsWithRealTimeData(lots);
           },
           error: (error) => {
             this.errorMessage = error.message || 'Failed to search parking lots';
@@ -492,5 +523,90 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     
     return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  private enhanceLotsWithRealTimeData(lots: ParkingLot[]): void {
+    const formValue = this.searchForm.value;
+    const vehicleType = formValue.vehicleType;
+    const startTime = formValue.startTime;
+    const endTime = formValue.endTime;
+
+    if (!vehicleType || !startTime || !endTime) {
+      // If no time/vehicle selected, just show lots without enhancement
+      this.searchResults = lots;
+      this.searching = false;
+      if (lots.length > 0) {
+        this.searchFormCollapsed = true;
+      }
+      return;
+    }
+
+    // Convert form times to ISO format
+    const startISO = new Date(startTime).toISOString();
+    const endISO = new Date(endTime).toISOString();
+
+    let processedCount = 0;
+    const enhancedLots = [...lots];
+
+    lots.forEach((lot, index) => {
+      // Get both availability and pricing data
+      const availabilityCall = this.parkingService.checkAvailability(lot.id, vehicleType, startISO, endISO);
+      const pricingCall = this.bookingService.getPricingPreview({
+        lot_id: lot.id,
+        vehicle_type: vehicleType,
+        start_time: startISO,
+        end_time: endISO
+      });
+
+      // Combine both calls
+      availabilityCall.pipe(takeUntil(this.destroy$)).subscribe({
+        next: (availability) => {
+          // Update lot with availability data
+          if (vehicleType === 'car') {
+            enhancedLots[index].available_car_slots = availability.available_slots;
+          } else {
+            enhancedLots[index].available_bike_slots = availability.available_slots;
+          }
+          
+          // Also get pricing data
+          pricingCall.pipe(takeUntil(this.destroy$)).subscribe({
+            next: (pricing) => {
+              // Add pricing strategy info to lot
+              (enhancedLots[index] as any).pricingInfo = pricing;
+              
+              processedCount++;
+              if (processedCount === lots.length) {
+                this.finishEnhancement(enhancedLots);
+              }
+            },
+            error: () => {
+              processedCount++;
+              if (processedCount === lots.length) {
+                this.finishEnhancement(enhancedLots);
+              }
+            }
+          });
+        },
+        error: () => {
+          processedCount++;
+          if (processedCount === lots.length) {
+            this.finishEnhancement(enhancedLots);
+          }
+        }
+      });
+    });
+  }
+
+  private finishEnhancement(lots: ParkingLot[]): void {
+    this.searchResults = lots;
+    this.searching = false;
+    // Auto-collapse search form after successful search
+    if (lots.length > 0) {
+      this.searchFormCollapsed = true;
+    }
+  }
+
+  getPricingInfo(lot: ParkingLot): any {
+    return (lot as any).pricingInfo || null;
   }
 }
