@@ -1,335 +1,227 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { Subject, takeUntil, interval, startWith } from 'rxjs';
-import { AdminService, AdminStats } from '../services/admin.service';
-import { LoadingComponent } from '../../../shared/components/loading.component';
+import { Subject, takeUntil } from 'rxjs';
+import { AdminService, DashboardResponse } from '../services/admin.service';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, LoadingComponent],
+  imports: [CommonModule],
   template: `
     <div class="container-fluid mt-4">
-      <!-- Header -->
       <div class="row mb-4">
         <div class="col-12">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <h1 class="h2 mb-1">
-                <i class="fas fa-tachometer-alt me-2"></i>
-                Admin Dashboard
-              </h1>
-              <p class="text-muted">System overview and management</p>
-            </div>
-            <div>
-              <button class="btn btn-primary me-2" (click)="refreshData()">
-                <i class="fas fa-sync-alt me-2" [class.fa-spin]="loading"></i>
-                Refresh
-              </button>
-              <button class="btn btn-outline-secondary" routerLink="/admin/reports">
-                <i class="fas fa-chart-line me-2"></i>
-                View Reports
-              </button>
-            </div>
-          </div>
+          <h2>
+            <i class="fas fa-tachometer-alt me-2"></i>
+            Admin Dashboard
+          </h2>
         </div>
       </div>
 
-      <app-loading *ngIf="loading && !stats" message="Loading dashboard..."></app-loading>
+      <!-- Loading State -->
+      <div *ngIf="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3">Loading dashboard data...</p>
+      </div>
 
-      <div *ngIf="!loading || stats">
-        <!-- Quick Stats Cards -->
-        <div class="row mb-4" *ngIf="stats">
-          <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-primary">
+      <!-- Error State -->
+      <div *ngIf="errorMessage" class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        {{ errorMessage }}
+      </div>
+
+      <!-- Dashboard Content -->
+      <div *ngIf="!loading && dashboardData">
+        <!-- Overview Cards -->
+        <div class="row mb-4">
+          <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white">
               <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                  <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                      Total Users
-                    </div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                      {{ stats.totalUsers | number }}
-                    </div>
+                <div class="d-flex justify-content-between">
+                  <div>
+                    <h4 class="mb-0">{{ dashboardData.overview.total_users }}</h4>
+                    <small>Total Users</small>
                   </div>
-                  <div class="col-auto">
-                    <i class="fas fa-users fa-2x text-primary"></i>
-                  </div>
+                  <i class="fas fa-users fa-2x opacity-75"></i>
                 </div>
               </div>
             </div>
           </div>
-
-          <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-success">
+          
+          <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white">
               <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                  <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                      Total Bookings
-                    </div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                      {{ stats.totalBookings | number }}
-                    </div>
+                <div class="d-flex justify-content-between">
+                  <div>
+                    <h4 class="mb-0">{{ dashboardData.overview.total_parking_lots }}</h4>
+                    <small>Parking Lots</small>
                   </div>
-                  <div class="col-auto">
-                    <i class="fas fa-ticket-alt fa-2x text-success"></i>
-                  </div>
+                  <i class="fas fa-parking fa-2x opacity-75"></i>
                 </div>
               </div>
             </div>
           </div>
-
-          <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-info">
+          
+          <div class="col-md-3 mb-3">
+            <div class="card bg-info text-white">
               <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                  <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                      Total Revenue
-                    </div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                      \${{ stats.totalRevenue | number:'1.2-2' }}
-                    </div>
+                <div class="d-flex justify-content-between">
+                  <div>
+                    <h4 class="mb-0">{{ dashboardData.overview.today_bookings }}</h4>
+                    <small>Today's Bookings</small>
                   </div>
-                  <div class="col-auto">
-                    <i class="fas fa-dollar-sign fa-2x text-info"></i>
-                  </div>
+                  <i class="fas fa-calendar-alt fa-2x opacity-75"></i>
                 </div>
               </div>
             </div>
           </div>
-
-          <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-warning">
+          
+          <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-white">
               <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                  <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                      Active Lots
-                    </div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                      {{ stats.activeLots | number }}
-                    </div>
+                <div class="d-flex justify-content-between">
+                  <div>
+                    <h4 class="mb-0">₹{{ dashboardData.overview.today_revenue | number:'1.2-2' }}</h4>
+                    <small>Today's Revenue</small>
                   </div>
-                  <div class="col-auto">
-                    <i class="fas fa-parking fa-2x text-warning"></i>
-                  </div>
+                  <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Today's Stats -->
-        <div class="row mb-4" *ngIf="stats">
-          <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header">
-                <h5 class="mb-0">
-                  <i class="fas fa-calendar-day me-2"></i>
-                  Today's Performance
-                </h5>
-              </div>
-              <div class="card-body">
-                <div class="row">
-                  <div class="col-6">
-                    <div class="text-center">
-                      <h3 class="text-primary">{{ stats.todayBookings }}</h3>
-                      <p class="text-muted mb-0">Bookings Today</p>
-                    </div>
-                  </div>
-                  <div class="col-6">
-                    <div class="text-center">
-                      <h3 class="text-success">\${{ stats.todayRevenue | number:'1.2-2' }}</h3>
-                      <p class="text-muted mb-0">Revenue Today</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-6">
+        <!-- Statistics Row -->
+        <div class="row mb-4">
+          <!-- Booking Status Breakdown -->
+          <div class="col-md-6 mb-3">
             <div class="card">
               <div class="card-header">
                 <h5 class="mb-0">
                   <i class="fas fa-chart-pie me-2"></i>
-                  System Utilization
-                </h5>
-              </div>
-              <div class="card-body">
-                <div class="text-center">
-                  <div class="progress mb-3" style="height: 20px;">
-                    <div
-                      class="progress-bar"
-                      [class.bg-success]="stats.occupancyRate < 70"
-                      [class.bg-warning]="stats.occupancyRate >= 70 && stats.occupancyRate < 90"
-                      [class.bg-danger]="stats.occupancyRate >= 90"
-                      [style.width.%]="stats.occupancyRate"
-                    >
-                      {{ stats.occupancyRate.toFixed(1) }}%
-                    </div>
-                  </div>
-                  <h4>{{ stats.occupancyRate.toFixed(1) }}% Occupied</h4>
-                  <p class="text-muted mb-0">Average occupancy across all lots</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="row mb-4">
-          <div class="col-12">
-            <div class="card">
-              <div class="card-header">
-                <h5 class="mb-0">
-                  <i class="fas fa-bolt me-2"></i>
-                  Quick Actions
+                  Booking Status
                 </h5>
               </div>
               <div class="card-body">
                 <div class="row">
-                  <div class="col-lg-3 col-md-6 mb-3">
-                    <button class="btn btn-outline-primary w-100 h-100" routerLink="/admin/users">
-                      <i class="fas fa-users fa-2x d-block mb-2"></i>
-                      Manage Users
-                    </button>
+                  <div class="col-6 mb-2">
+                    <div class="d-flex justify-content-between">
+                      <span>Confirmed:</span>
+                      <span class="badge bg-success">{{ dashboardData.today_statistics.status_breakdown.confirmed }}</span>
+                    </div>
                   </div>
-                  <div class="col-lg-3 col-md-6 mb-3">
-                    <button class="btn btn-outline-success w-100 h-100" routerLink="/admin/parking">
-                      <i class="fas fa-parking fa-2x d-block mb-2"></i>
-                      Manage Parking
-                    </button>
+                  <div class="col-6 mb-2">
+                    <div class="d-flex justify-content-between">
+                      <span>Active:</span>
+                      <span class="badge bg-primary">{{ dashboardData.today_statistics.status_breakdown.active }}</span>
+                    </div>
                   </div>
-                  <div class="col-lg-3 col-md-6 mb-3">
-                    <button class="btn btn-outline-info w-100 h-100" routerLink="/admin/bookings">
-                      <i class="fas fa-ticket-alt fa-2x d-block mb-2"></i>
-                      Manage Bookings
-                    </button>
+                  <div class="col-6 mb-2">
+                    <div class="d-flex justify-content-between">
+                      <span>Completed:</span>
+                      <span class="badge bg-info">{{ dashboardData.today_statistics.status_breakdown.completed }}</span>
+                    </div>
                   </div>
-                  <div class="col-lg-3 col-md-6 mb-3">
-                    <button class="btn btn-outline-warning w-100 h-100" routerLink="/admin/analytics">
-                      <i class="fas fa-chart-line fa-2x d-block mb-2"></i>
-                      View Analytics
-                    </button>
+                  <div class="col-6 mb-2">
+                    <div class="d-flex justify-content-between">
+                      <span>Pending:</span>
+                      <span class="badge bg-warning">{{ dashboardData.today_statistics.status_breakdown.pending }}</span>
+                    </div>
+                  </div>
+                  <div class="col-6 mb-2">
+                    <div class="d-flex justify-content-between">
+                      <span>Cancelled:</span>
+                      <span class="badge bg-danger">{{ dashboardData.today_statistics.status_breakdown.cancelled }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Recent Activity -->
-        <div class="row" *ngIf="stats && stats.recentActivity">
-          <div class="col-12">
+          <!-- Vehicle Type Breakdown -->
+          <div class="col-md-6 mb-3">
             <div class="card">
-              <div class="card-header d-flex justify-content-between align-items-center">
+              <div class="card-header">
                 <h5 class="mb-0">
-                  <i class="fas fa-history me-2"></i>
-                  Recent Activity
+                  <i class="fas fa-car me-2"></i>
+                  Vehicle Types
                 </h5>
-                <a routerLink="/admin/logs" class="btn btn-sm btn-outline-secondary">
-                  View All Logs
-                </a>
               </div>
               <div class="card-body">
-                <div class="list-group list-group-flush">
-                  <div 
-                    class="list-group-item list-group-item-action" 
-                    *ngFor="let activity of stats.recentActivity.slice(0, 10)"
-                  >
-                    <div class="d-flex w-100 justify-content-between">
-                      <h6 class="mb-1">{{ activity.title }}</h6>
-                      <small>{{ activity.timestamp | date:'short' }}</small>
+                <div class="row text-center">
+                  <div class="col-6">
+                    <i class="fas fa-car fa-2x text-primary mb-2"></i>
+                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.car.count }}</h4>
+                    <small class="text-muted">Cars</small>
+                    <div class="text-success mt-1">
+                      ₹{{ dashboardData.today_statistics.vehicle_type_breakdown.car.revenue | number:'1.2-2' }}
                     </div>
-                    <p class="mb-1">{{ activity.description }}</p>
-                    <small class="text-muted">{{ activity.user || 'System' }}</small>
                   </div>
-                </div>
-                
-                <div class="text-center py-4" *ngIf="stats.recentActivity.length === 0">
-                  <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
-                  <p class="text-muted">No recent activity</p>
+                  <div class="col-6">
+                    <i class="fas fa-motorcycle fa-2x text-success mb-2"></i>
+                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.bike.count }}</h4>
+                    <small class="text-muted">Bikes</small>
+                    <div class="text-success mt-1">
+                      ₹{{ dashboardData.today_statistics.vehicle_type_breakdown.bike.revenue | number:'1.2-2' }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Error State -->
-      <div class="row" *ngIf="!loading && !stats">
-        <div class="col-12">
-          <div class="card">
-            <div class="card-body text-center py-5">
-              <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
-              <h4>Unable to Load Dashboard</h4>
-              <p class="text-muted mb-4">
-                {{ errorMessage || 'There was an error loading the admin dashboard.' }}
-              </p>
-              <button class="btn btn-primary" (click)="refreshData()">
-                <i class="fas fa-retry me-2"></i>
-                Try Again
-              </button>
+        <!-- Additional Statistics -->
+        <div class="row">
+          <div class="col-md-12">
+            <div class="card">
+              <div class="card-header">
+                <h5 class="mb-0">
+                  <i class="fas fa-info-circle me-2"></i>
+                  Summary Statistics
+                </h5>
+              </div>
+              <div class="card-body">
+                <div class="row text-center">
+                  <div class="col-md-3">
+                    <h4 class="text-primary">{{ dashboardData.today_statistics.total_bookings }}</h4>
+                    <small class="text-muted">Total Bookings</small>
+                  </div>
+                  <div class="col-md-3">
+                    <h4 class="text-success">₹{{ dashboardData.today_statistics.total_revenue | number:'1.2-2' }}</h4>
+                    <small class="text-muted">Total Revenue</small>
+                  </div>
+                  <div class="col-md-3">
+                    <h4 class="text-info">₹{{ dashboardData.today_statistics.average_booking_value | number:'1.2-2' }}</h4>
+                    <small class="text-muted">Average Booking</small>
+                  </div>
+                  <div class="col-md-3">
+                    <h4 class="text-warning">{{ getOccupancyRate() }}%</h4>
+                    <small class="text-muted">Occupancy Rate</small>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  `,
-  styles: [`
-    .card {
-      box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-      border: 1px solid #e3e6f0;
-    }
-
-    .text-xs {
-      font-size: 0.7rem;
-    }
-
-    .font-weight-bold {
-      font-weight: 700;
-    }
-
-    .text-gray-800 {
-      color: #5a5c69;
-    }
-
-    .btn.h-100 {
-      min-height: 100px;
-    }
-
-    .progress {
-      background-color: #e9ecef;
-    }
-  `]
+  `
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
-  stats: AdminStats | null = null;
+  private destroy$ = new Subject<void>();
+  
+  dashboardData: DashboardResponse | null = null;
   loading = true;
   errorMessage = '';
-  
-  private destroy$ = new Subject<void>();
 
   constructor(private adminService: AdminService) {}
 
   ngOnInit(): void {
     this.loadDashboardData();
-    
-    // Auto-refresh every 5 minutes
-    interval(5 * 60 * 1000)
-      .pipe(
-        startWith(0),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(() => {
-        if (!this.loading) {
-          this.refreshData();
-        }
-      });
   }
 
   ngOnDestroy(): void {
@@ -338,53 +230,33 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadDashboardData(): void {
-    this.adminService.getAdminStats()
+    this.loading = true;
+    this.errorMessage = '';
+
+    this.adminService.getDashboardData()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (stats) => {
-          this.stats = stats;
+        next: (data) => {
+          console.log('✅ Dashboard data received:', data);
+          this.dashboardData = data;
           this.loading = false;
-          this.errorMessage = '';
         },
         error: (error) => {
-          console.error('Error loading admin stats:', error);
-          this.errorMessage = error.message || 'Failed to load dashboard data';
+          console.error('❌ Dashboard API error:', error);
+          this.errorMessage = 'Failed to load dashboard data';
           this.loading = false;
-          
-          // Provide fallback demo data if backend is not available
-          this.stats = this.getDemoStats();
         }
       });
   }
 
-  refreshData(): void {
-    this.loading = true;
-    this.loadDashboardData();
-  }
-
-  private getDemoStats(): AdminStats {
-    return {
-      totalUsers: 125,
-      totalBookings: 1847,
-      totalRevenue: 15420.50,
-      activeLots: 8,
-      todayBookings: 23,
-      todayRevenue: 180.75,
-      occupancyRate: 68.5,
-      recentActivity: [
-        {
-          title: 'New user registered',
-          description: 'john.doe@example.com joined the platform',
-          timestamp: new Date().toISOString(),
-          user: 'System'
-        },
-        {
-          title: 'Booking cancelled',
-          description: 'Booking #1234 was cancelled by user',
-          timestamp: new Date(Date.now() - 300000).toISOString(),
-          user: 'jane.smith@example.com'
-        }
-      ]
-    };
+  getOccupancyRate(): number {
+    if (!this.dashboardData) return 0;
+    
+    const activeBookings = this.dashboardData.today_statistics.status_breakdown.active;
+    const totalLots = this.dashboardData.overview.total_parking_lots;
+    
+    // Rough calculation: assume each lot has ~100 slots
+    const estimatedSlots = totalLots * 100;
+    return estimatedSlots > 0 ? Math.round((activeBookings / estimatedSlots) * 100) : 0;
   }
 }
