@@ -63,6 +63,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/booking/components/booking-details.component').then(m => m.BookingDetailsComponent)
   },
   {
+    path: 'payment',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/payment/components/chunk-payment-page.component').then(m => m.ChunkPaymentPageComponent)
+  },
+  {
     path: 'payment/:bookingId',
     canActivate: [authGuard],
     loadComponent: () => import('./features/payment/components/payment-page.component').then(m => m.PaymentPageComponent)

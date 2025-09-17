@@ -514,40 +514,62 @@ export class BookingFormComponent implements OnInit, OnDestroy {
   }
 
   onSubmit(): void {
-    if (this.bookingForm.valid && this.selectedLot) {
+    if (this.bookingForm.valid && this.selectedLot && this.selectedChunks.length > 0) {
       this.submitting = true;
       this.errorMessage = '';
 
-      const formValue = this.bookingForm.value;
+      // Extract chunk IDs from selected chunks
+      const chunkIds = this.selectedChunks.map(chunk => chunk.id);
       
-      // Convert datetime-local values to proper ISO format
-      // The form inputs are in local time, convert them to ISO strings
-      const startDate = new Date(formValue.startTime);
-      const endDate = new Date(formValue.endTime);
+      console.log('🔄 Starting chunk-based payment flow...');
+      console.log('- Selected chunks:', chunkIds.length);
+      console.log('- Lot:', this.selectedLot.name);
+      console.log('- Vehicle:', this.bookingForm.value.vehicleType);
       
-      const bookingData = {
-        lot_id: this.selectedLot.id,
-        vehicle_type: formValue.vehicleType,
-        vehicle_number: formValue.vehicleNumber.toUpperCase(),
-        start_time: startDate.toISOString(),
-        end_time: endDate.toISOString()
-      };
-
-      this.bookingService.createBooking(bookingData)
+      // Reserve chunks in Redis with 10-minute UTC-based TTL
+      this.bookingService.reserveChunks(chunkIds)
         .pipe(takeUntil(this.destroy$))
         .subscribe({
-          next: (booking) => {
+          next: (reservation) => {
             this.submitting = false;
-            // Navigate to payment page instead of showing inline payment form
-            this.router.navigate(['/payment', booking.id]);
+            
+            if (reservation.success) {
+              console.log('✅ Chunks reserved successfully:', reservation.session_id);
+              
+              // Navigate to payment page with reservation session ID and booking details
+              const navigationExtras = {
+                queryParams: {
+                  sessionId: reservation.session_id,
+                  slotId: this.selectedSlotId,
+                  slotNumber: `${this.selectedLot!.name}-${this.selectedSlotId?.substring(0, 8)}`,
+                  lotId: this.selectedLot!.id,
+                  lotName: this.selectedLot!.name,
+                  vehicleType: this.bookingForm.value.vehicleType,
+                  vehicleNumber: this.bookingForm.value.vehicleNumber.toUpperCase(),
+                  chunks: JSON.stringify(this.selectedChunks),
+                  totalAmount: this.pricingPreview?.total_amount || 0,
+                  expiresAt: reservation.expires_at  // UTC timestamp from backend
+                }
+              };
+              
+              this.router.navigate(['/payment'], navigationExtras);
+            } else {
+              console.error('❌ Chunk reservation failed:', reservation.error);
+              this.errorMessage = reservation.error || 'Failed to reserve time slots. Please try again.';
+            }
           },
           error: (error) => {
-            this.errorMessage = error.message || 'Failed to create booking. Please try again.';
+            console.error('❌ Reservation error:', error);
+            this.errorMessage = 'Failed to reserve time slots. Please try again.';
             this.submitting = false;
           }
         });
     } else {
       this.markFormGroupTouched();
+      
+      if (this.selectedChunks.length === 0) {
+        this.errorMessage = 'Please select at least one time slot to continue.';
+      }
     }
   }
 
