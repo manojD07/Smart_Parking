@@ -5,7 +5,7 @@ from sqlalchemy import select, and_, or_, func, desc, update
 from sqlalchemy.orm import selectinload, joinedload
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.repositories.base import BaseRepository
 from app.models.booking import Booking, SlotAllocation, BookingStatus, AllocationType
@@ -222,7 +222,7 @@ class BookingRepository(BaseRepository[Booking]):
         """Get bookings that should be marked as expired."""
         try:
             if not cutoff_time:
-                cutoff_time = datetime.utcnow()
+                cutoff_time = datetime.now(timezone.utc)
             
             query = (
                 select(Booking)
@@ -244,7 +244,7 @@ class BookingRepository(BaseRepository[Booking]):
     async def get_no_show_bookings(self, grace_period_minutes: int = 15) -> List[Booking]:
         """Get bookings that should be marked as no-show."""
         try:
-            cutoff_time = datetime.utcnow() - timedelta(minutes=grace_period_minutes)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=grace_period_minutes)
             
             query = (
                 select(Booking)
@@ -389,7 +389,7 @@ class BookingRepository(BaseRepository[Booking]):
             query = (
                 update(Booking)
                 .where(Booking.id.in_(booking_ids))
-                .values(status=status.value, updated_at=datetime.utcnow())
+                .values(status=status.value, updated_at=datetime.now(timezone.utc))
             )
             
             result = await self.session.execute(query)

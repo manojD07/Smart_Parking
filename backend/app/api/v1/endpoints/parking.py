@@ -79,20 +79,19 @@ async def get_lot_availability(
     """Get real-time availability for a parking lot."""
     try:
         from datetime import datetime, timedelta, timezone
-        from app.core.timezone import now as ist_now, from_iso_string
         
         parking_service = ParkingService(session)
         
         # Default to next hour if no time specified
         if not start_time:
-            start_dt = ist_now()
+            start_dt = datetime.now(timezone.utc)
         else:
-            start_dt = from_iso_string(start_time)
+            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
         
         if not end_time:
             end_dt = start_dt + timedelta(hours=1)
         else:
-            end_dt = from_iso_string(end_time)
+            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
         
         availability = await parking_service.get_lot_availability(
             lot_id=lot_id,

@@ -1,6 +1,6 @@
 """Pricing service for dynamic pricing calculations."""
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from uuid import UUID
 from decimal import Decimal
@@ -75,7 +75,7 @@ class PricingService(BaseService[PricingRule, PricingRuleRepository]):
     ) -> Dict[str, Any]:
         """Get pricing preview for different time periods."""
         try:
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
             
             # Calculate for current time
             end_time = current_time + timedelta(hours=duration_hours)

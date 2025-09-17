@@ -1,7 +1,6 @@
 """Booking service for handling parking reservations."""
 
 from datetime import datetime, timedelta, timezone
-from app.core.timezone import now as ist_now, to_ist, ensure_ist
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 from decimal import Decimal
@@ -60,9 +59,11 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
     ) -> Booking:
         """Create a new parking booking."""
         try:
-            # Ensure datetimes are timezone-aware in IST before processing
-            start_time = to_ist(start_time) if start_time.tzinfo else ensure_ist(start_time)
-            end_time = to_ist(end_time) if end_time.tzinfo else ensure_ist(end_time)
+            # Ensure datetimes are timezone-aware in UTC before processing
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=timezone.utc)
+            if end_time.tzinfo is None:
+                end_time = end_time.replace(tzinfo=timezone.utc)
                 
             async def _create_booking_operation():
                 # Validate booking data
@@ -472,11 +473,13 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
             raise ParkingLotNotActiveError("Parking lot is not active")
         
         # Ensure all datetimes are timezone-aware for consistent comparison
-        now = ist_now()
+        now = datetime.now(timezone.utc)
         
-        # Convert naive datetimes to IST if necessary
-        start_time = to_ist(start_time) if start_time.tzinfo else ensure_ist(start_time)
-        end_time = to_ist(end_time) if end_time.tzinfo else ensure_ist(end_time)
+        # Convert naive datetimes to UTC if necessary
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
         
         # Validate time range - allow 5 minutes grace period for user convenience
         grace_period = timedelta(minutes=5)

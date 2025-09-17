@@ -1,8 +1,9 @@
 /**
- * Timezone utilities for consistent IST handling in the frontend
+ * Timezone utilities for frontend display
+ * Backend sends UTC timestamps, frontend displays in IST
  */
 
-// Indian Standard Time timezone
+// Indian Standard Time timezone for display
 export const IST_TIMEZONE = 'Asia/Kolkata';
 export const IST_OFFSET = '+05:30';
 
@@ -138,15 +139,17 @@ export function endOfDayIST(date?: Date): Date {
 }
 
 /**
- * Parse backend ISO string to IST date
+ * Parse backend UTC ISO string to IST date for display
  */
 export function parseBackendDate(isoString: string): Date {
+  // Backend sends UTC, convert to IST for display
   return toIST(new Date(isoString));
 }
 
 /**
- * Convert frontend date to backend format (ISO string)
+ * Convert IST date to UTC ISO string for backend
  */
 export function toBackendDate(date: Date): string {
-  return toIST(date).toISOString();
+  // Convert IST display time to UTC for backend
+  return date.toISOString();
 }

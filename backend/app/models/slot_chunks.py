@@ -148,8 +148,8 @@ class SlotTimeChunk(BaseModel):
     @property
     def is_future(self) -> bool:
         """Check if chunk end time is in the future."""
-        from app.core.timezone import now as ist_now
-        return self.end_time > ist_now()
+        from datetime import datetime, timezone
+        return self.end_time > datetime.now(timezone.utc)
     
     def mark_available(self) -> None:
         """Mark chunk as available."""
@@ -167,10 +167,10 @@ class SlotTimeChunk(BaseModel):
     
     def mark_temp_reserved(self, user_id: UUID) -> None:
         """Mark chunk as temporarily reserved."""
-        from app.core.timezone import now as ist_now
+        from datetime import datetime, timezone
         self.status = ChunkStatus.TEMP_RESERVED.value
         self.reserved_by = user_id
-        self.reserved_at = ist_now()
+        self.reserved_at = datetime.now(timezone.utc)
         self.booking_id = None
     
     def __repr__(self) -> str:

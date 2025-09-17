@@ -5,7 +5,7 @@ from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import joinedload
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timezone, timedelta
 
 from app.repositories.base import BaseRepository
 from app.models.pricing import PricingRule, PricingRuleType
@@ -344,7 +344,7 @@ class PricingRuleRepository(BaseRepository[PricingRule]):
     async def deactivate_expired_rules(self) -> int:
         """Deactivate pricing rules that have expired."""
         try:
-            current_date = datetime.utcnow().date()
+            current_date = datetime.now(timezone.utc).date()
             
             # Find rules that have expired
             query = (

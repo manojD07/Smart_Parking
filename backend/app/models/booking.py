@@ -4,7 +4,6 @@ from sqlalchemy import Column, String, ForeignKey, DECIMAL, DateTime, CheckConst
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped
 from datetime import datetime, timedelta, timezone
-from app.core.timezone import now as ist_now
 from typing import TYPE_CHECKING, Optional, List
 from enum import Enum
 import secrets
@@ -168,12 +167,12 @@ class Booking(BaseModel):
         """Check if booking has expired."""
         if self.status not in [BookingStatus.CONFIRMED.value, BookingStatus.ACTIVE.value]:
             return False
-        return ist_now() > self.end_time
+        return datetime.now(timezone.utc) > self.end_time
     
     @property
     def is_current(self) -> bool:
         """Check if booking is currently in progress."""
-        now = ist_now()
+        now = datetime.now(timezone.utc)
         return (
             self.status in [BookingStatus.CONFIRMED.value, BookingStatus.ACTIVE.value] and
             self.start_time <= now <= self.end_time
@@ -182,7 +181,7 @@ class Booking(BaseModel):
     @property
     def can_check_in(self) -> bool:
         """Check if user can check in."""
-        now = ist_now()
+        now = datetime.now(timezone.utc)
         return (
             self.status == BookingStatus.CONFIRMED.value and
             self.check_in_time is None and
@@ -201,15 +200,15 @@ class Booking(BaseModel):
     @property
     def time_until_start(self) -> Optional[timedelta]:
         """Get time until booking starts."""
-        if self.start_time > ist_now():
-            return self.start_time - ist_now()
+        if self.start_time > datetime.now(timezone.utc):
+            return self.start_time - datetime.now(timezone.utc)
         return None
     
     @property
     def time_remaining(self) -> Optional[timedelta]:
         """Get remaining time in booking."""
         if self.is_current:
-            return self.end_time - ist_now()
+            return self.end_time - datetime.now(timezone.utc)
         return None
     
     def can_cancel(self, min_notice_hours: int = 1) -> bool:
@@ -218,7 +217,7 @@ class Booking(BaseModel):
             return False
         
         # Allow cancellation if start time is more than min_notice_hours away
-        min_cancel_time = ist_now() + timedelta(hours=min_notice_hours)
+        min_cancel_time = datetime.now(timezone.utc) + timedelta(hours=min_notice_hours)
         return self.start_time > min_cancel_time
     
     def cancel(self) -> None:
@@ -235,7 +234,7 @@ class Booking(BaseModel):
         if not self.can_check_in:
             raise ValueError("Cannot check in at this time")
         
-        self.check_in_time = ist_now()
+        self.check_in_time = datetime.now(timezone.utc)
         self.status = BookingStatus.ACTIVE.value
         if self.slot:
             self.slot.mark_occupied()
@@ -245,7 +244,7 @@ class Booking(BaseModel):
         if not self.can_check_out:
             raise ValueError("Cannot check out at this time")
         
-        self.check_out_time = ist_now()
+        self.check_out_time = datetime.now(timezone.utc)
         self.status = BookingStatus.COMPLETED.value
         if self.slot:
             self.slot.mark_available()

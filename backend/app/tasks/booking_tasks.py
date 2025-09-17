@@ -1,6 +1,6 @@
 """Background tasks for booking management."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 import structlog
 
@@ -177,7 +177,7 @@ def schedule_booking_reminders(self, booking_id: str):
                     return
                 
                 # Schedule reminders
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 
                 # 1 hour before reminder
                 reminder_1h = booking.start_time - timedelta(hours=1)
@@ -227,7 +227,7 @@ def update_lot_availability_cache(self, lot_id: str):
                 lot_repo = ParkingLotRepository(async_session)
                 
                 # Calculate current availability
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 end_time = now + timedelta(hours=1)  # Next hour
                 
                 availability_data = {}

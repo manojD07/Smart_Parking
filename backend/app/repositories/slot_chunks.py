@@ -1,6 +1,6 @@
 """Repository for SlotTimeChunk model operations."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 
@@ -11,7 +11,6 @@ import structlog
 from app.repositories.base import BaseRepository
 from app.models.slot_chunks import SlotTimeChunk, ChunkStatus
 from app.core.config import settings
-from app.core.timezone import now as ist_now
 
 
 logger = structlog.get_logger(__name__)
@@ -45,7 +44,7 @@ class SlotTimeChunkRepository(BaseRepository[SlotTimeChunk]):
                 chunk_end = current + timedelta(minutes=settings.slot_time_chunk_size)
                 
                 # Only create chunks with future end times
-                if chunk_end > ist_now():
+                if chunk_end > datetime.now(timezone.utc):
                     # Check if chunk already exists
                     existing = await self.session.execute(
                         select(SlotTimeChunk).where(
@@ -100,7 +99,7 @@ class SlotTimeChunkRepository(BaseRepository[SlotTimeChunk]):
                     SlotTimeChunk.slot_id == slot_id,
                     SlotTimeChunk.start_time >= start_time,
                     SlotTimeChunk.end_time <= end_time,
-                    SlotTimeChunk.end_time > ist_now()  # Only future chunks
+                    SlotTimeChunk.end_time > datetime.now(timezone.utc)  # Only future chunks
                 )
             ).order_by(SlotTimeChunk.start_time)
             
@@ -166,7 +165,7 @@ class SlotTimeChunkRepository(BaseRepository[SlotTimeChunk]):
                     SlotTimeChunk.start_time >= start_time,
                     SlotTimeChunk.end_time <= end_time,
                     SlotTimeChunk.status == ChunkStatus.AVAILABLE.value,
-                    SlotTimeChunk.end_time > ist_now()
+                    SlotTimeChunk.end_time > datetime.now(timezone.utc)
                 )
             ).order_by(SlotTimeChunk.start_time)
             
@@ -196,7 +195,7 @@ class SlotTimeChunkRepository(BaseRepository[SlotTimeChunk]):
                 .values(
                     status=ChunkStatus.TEMP_RESERVED.value,
                     reserved_by=user_id,
-                    reserved_at=ist_now()
+                    reserved_at=datetime.now(timezone.utc)
                 )
             )
             
@@ -304,7 +303,7 @@ class SlotTimeChunkRepository(BaseRepository[SlotTimeChunk]):
     async def cleanup_expired_reservations(self, expiry_minutes: int = 10) -> int:
         """Clean up expired temporary reservations."""
         try:
-            expiry_time = ist_now() - timedelta(minutes=expiry_minutes)
+            expiry_time = datetime.now(timezone.utc) - timedelta(minutes=expiry_minutes)
             
             query = (
                 update(SlotTimeChunk)

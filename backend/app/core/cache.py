@@ -3,7 +3,7 @@
 import json
 import pickle
 from typing import Any, Optional, Union, Dict, List
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 import redis.asyncio as redis
 from redis.asyncio import ConnectionPool
 import structlog
@@ -455,8 +455,8 @@ class ChunkReservationCache:
             session_key = f"session:{user_session_id}"
             session_data = {
                 "chunk_ids": chunk_ids,
-                "created_at": datetime.now().isoformat(),
-                "expires_at": (datetime.now() + timedelta(seconds=ttl_seconds)).isoformat()
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
             }
             pipe.setex(session_key, ttl_seconds, json.dumps(session_data))
             

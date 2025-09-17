@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Dict, Any
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc, asc
@@ -82,7 +82,7 @@ class PaymentRepository(BaseRepository[Payment]):
     
     async def get_pending_payments(self, older_than_minutes: int = 30) -> List[Payment]:
         """Get payments that are pending for more than specified minutes."""
-        cutoff_time = datetime.utcnow() - timedelta(minutes=older_than_minutes)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=older_than_minutes)
         
         result = await self.session.execute(
             select(Payment)
@@ -98,7 +98,7 @@ class PaymentRepository(BaseRepository[Payment]):
     
     async def get_expired_payments(self) -> List[Payment]:
         """Get payments that have expired."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         result = await self.session.execute(
             select(Payment)

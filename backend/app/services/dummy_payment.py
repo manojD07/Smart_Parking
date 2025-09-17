@@ -5,7 +5,7 @@ import secrets
 from decimal import Decimal
 from datetime import datetime
 from typing import Dict, Any
-from app.core.timezone import now as ist_now
+from datetime import timezone
 from app.schemas.payment import PaymentMethod, PaymentStatus, DummyPaymentResponse
 from app.models.booking import Booking
 import structlog

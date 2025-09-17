@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +36,7 @@ async def get_admin_dashboard(
         total_lots = await parking_service.count(is_active=True)
         
         # Get today's bookings
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         today_start = datetime.combine(today, datetime.min.time())
         today_end = datetime.combine(today, datetime.max.time())
         
