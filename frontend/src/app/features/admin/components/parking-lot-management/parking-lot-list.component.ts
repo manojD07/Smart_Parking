@@ -5,10 +5,10 @@ import { Subject } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 // Components
-import { ParkingLotCardComponent } from './parking-lot-card.component';
 import { ParkingLotFormComponent } from './parking-lot-form.component';
 import { LoadingStateComponent } from '../shared/loading-state.component';
 import { ConfirmationModalComponent } from '../shared/confirmation-modal.component';
+import { SlotOverviewComponent } from '../parking-slot-management/slot-overview.component';
 
 // Services
 import { ParkingLotService, ParkingLot, CreateLotData, UpdateLotData, LotStatistics } from '../../../../core/services/parking-lot.service';
@@ -28,10 +28,10 @@ interface PaginationInfo {
     CommonModule, 
     FormsModule, 
     ReactiveFormsModule,
-    ParkingLotCardComponent,
     ParkingLotFormComponent,
     LoadingStateComponent,
-    ConfirmationModalComponent
+    ConfirmationModalComponent,
+    SlotOverviewComponent
   ],
   template: `
     <div class="container-fluid p-4">
@@ -382,6 +382,9 @@ interface PaginationInfo {
       (cancel)="onCancelForm()">
     </app-parking-lot-form>
 
+    <!-- Slot Overview Modal -->
+    <app-slot-overview [selectedLot]="lotForSlotView"></app-slot-overview>
+
     <!-- Confirmation Modals -->
     <app-confirmation-modal
       modalId="deleteLotModal"
@@ -598,6 +601,7 @@ export class ParkingLotListComponent implements OnInit, OnDestroy {
   selectedLot: ParkingLot | null = null;
   lotToDelete: ParkingLot | null = null;
   lotToToggle: ParkingLot | null = null;
+  lotForSlotView: ParkingLot | null = null;
 
   // Math for template
   Math = Math;
@@ -888,8 +892,12 @@ export class ParkingLotListComponent implements OnInit, OnDestroy {
 
   // Event handlers
   onViewSlots(lot: ParkingLot): void {
-    // This will be implemented in Phase 2
-    this.toastService.showInfo(`Viewing slots for ${lot.name} - Coming in Phase 2`);
+    this.lotForSlotView = lot;
+    const modalElement = document.getElementById('slotOverviewModal');
+    if (modalElement) {
+      const modal = new (window as any).bootstrap.Modal(modalElement);
+      modal.show();
+    }
   }
 
   trackByLotId(index: number, lot: ParkingLot): string {
