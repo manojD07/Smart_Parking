@@ -60,6 +60,8 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
                       id="vehicleType"
                       formControlName="vehicleType"
                       [class.is-invalid]="isFieldInvalid('vehicleType')"
+                      [class.border-danger]="errorMessage && !searchForm.get('vehicleType')?.value"
+                      [style.animation]="errorMessage && !searchForm.get('vehicleType')?.value ? 'pulse 1s ease-in-out 3' : 'none'"
                       (change)="onVehicleTypeChange()"
                     >
                       <option value="">Select vehicle type</option>
@@ -164,7 +166,7 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
                     <button
                       type="submit"
                       class="btn btn-primary w-100"
-                      [disabled]="searchForm.invalid || searching"
+                      [disabled]="searching"
                     >
                       <span class="spinner-border spinner-border-sm me-2" *ngIf="searching"></span>
                       <i class="fas fa-search me-2" *ngIf="!searching"></i>
@@ -182,9 +184,10 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
       <app-loading *ngIf="searching && !errorMessage" message="Searching for parking lots..."></app-loading>
 
       <!-- Error Message -->
-      <div class="alert alert-danger" *ngIf="errorMessage">
+      <div class="alert alert-danger alert-dismissible fade show" *ngIf="errorMessage" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
-        {{ errorMessage }}
+        <strong>Search Error:</strong> {{ errorMessage }}
+        <button type="button" class="btn-close" (click)="clearError()" aria-label="Close"></button>
       </div>
 
       <!-- Search Results -->
@@ -289,6 +292,12 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
     </div>
   `,
   styles: [`
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+    
     @media (max-width: 768px) {
       .form-select-lg-mobile {
         font-size: 1.1rem;
@@ -379,8 +388,18 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
   onSearch(): void {
     // Check if vehicle type is selected first
     if (!this.searchForm.get('vehicleType')?.value) {
-      this.errorMessage = 'Please select a vehicle type before searching. This helps us show you accurate pricing and availability.';
+      this.errorMessage = '⚠️ Vehicle Type Required: Please select your vehicle type first to see accurate parking rates and availability for your specific vehicle.';
       this.markFormGroupTouched();
+      
+      // Scroll to vehicle type field and focus it
+      setTimeout(() => {
+        const vehicleTypeElement = document.getElementById('vehicleType');
+        if (vehicleTypeElement) {
+          vehicleTypeElement.focus();
+          vehicleTypeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
       return;
     }
     
@@ -459,6 +478,10 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
     if (this.searchForm.get('vehicleType')?.value) {
       this.errorMessage = '';
     }
+  }
+
+  clearError(): void {
+    this.errorMessage = '';
   }
 
   private formatDateTimeLocal(date: Date): string {
