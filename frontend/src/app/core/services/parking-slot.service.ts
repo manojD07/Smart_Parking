@@ -41,21 +41,42 @@ export class ParkingSlotService extends BaseApiService {
   }
 
   /**
-   * Get all slots for a parking lot
+   * Get all slots for a parking lot (handles pagination automatically)
    */
   async getLotSlots(lotId: string, filters?: SlotFilters): Promise<ParkingSlot[]> {
     try {
-      const params: any = {};
-      
-      if (filters) {
-        if (filters.vehicle_type) params.vehicle_type = filters.vehicle_type;
-        if (filters.status) params.status = filters.status;
-        if (filters.skip !== undefined) params.skip = filters.skip;
-        if (filters.limit !== undefined) params.limit = filters.limit;
+      const allSlots: ParkingSlot[] = [];
+      let skip = 0;
+      const batchSize = 200; // Maximum allowed by backend
+      let hasMore = true;
+
+      // Load all slots in batches to bypass the 200 limit
+      while (hasMore) {
+        const params: any = {
+          skip,
+          limit: batchSize
+        };
+        
+        if (filters) {
+          if (filters.vehicle_type) params.vehicle_type = filters.vehicle_type;
+          if (filters.status) params.status = filters.status;
+        }
+
+        const batch = await this.get<ParkingSlot[]>(`/parking/lots/${lotId}/slots`, params).toPromise();
+        
+        if (batch && batch.length > 0) {
+          allSlots.push(...batch);
+          skip += batchSize;
+          
+          // If we got less than the batch size, we've reached the end
+          hasMore = batch.length === batchSize;
+        } else {
+          hasMore = false;
+        }
       }
 
-      const response = await this.get<ParkingSlot[]>(`/parking/lots/${lotId}/slots`, params).toPromise();
-      return response || [];
+      console.log(`📊 Loaded ${allSlots.length} slots for lot ${lotId} in ${Math.ceil(allSlots.length / batchSize)} batch(es)`);
+      return allSlots;
     } catch (error) {
       console.error('Error fetching lot slots:', error);
       throw error;

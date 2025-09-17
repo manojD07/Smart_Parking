@@ -135,10 +135,6 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
               (click)="onSlotClick(slot)">
               
               <div class="slot-number">{{ slot.slot_number }}</div>
-              <div class="slot-icon">
-                <i class="fas fa-car"></i>
-              </div>
-              <div class="slot-status-indicator" [class]="slotService.getSlotStatusClass(slot)"></div>
             </div>
           </div>
         </div>
@@ -161,10 +157,6 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
               (click)="onSlotClick(slot)">
               
               <div class="slot-number">{{ slot.slot_number }}</div>
-              <div class="slot-icon">
-                <i class="fas fa-motorcycle"></i>
-              </div>
-              <div class="slot-status-indicator" [class]="slotService.getSlotStatusClass(slot)"></div>
             </div>
           </div>
         </div>
@@ -257,35 +249,27 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
     }
 
     .car-grid {
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
     }
 
     .bike-grid {
-      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
     }
 
     .slot-item {
       position: relative;
-      aspect-ratio: 1;
       background: #fff;
       border: 2px solid #dee2e6;
-      border-radius: 8px;
+      border-radius: 6px;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       transition: all 0.2s ease;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      height: 28px;
     }
 
-    .car-slot {
-      min-height: 100px;
-    }
-
-    .bike-slot {
-      min-height: 80px;
-    }
 
     .slot-item:hover {
       transform: translateY(-2px);
@@ -294,26 +278,11 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
 
     .slot-number {
       font-weight: 700;
-      font-size: 0.875rem;
+      font-size: 0.65rem;
       color: #495057;
-      margin-bottom: 0.25rem;
+      line-height: 1;
     }
 
-    .slot-icon {
-      font-size: 1.2rem;
-      color: #6c757d;
-      margin-bottom: 0.25rem;
-    }
-
-    .slot-status-indicator {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 2px solid #fff;
-    }
 
     /* Slot Status Colors */
     .slot-available {
@@ -321,17 +290,9 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
       background-color: #f8fff9;
     }
 
-    .slot-available .slot-status-indicator {
-      background-color: #28a745;
-    }
-
     .slot-occupied {
       border-color: #dc3545;
       background-color: #fff5f5;
-    }
-
-    .slot-occupied .slot-status-indicator {
-      background-color: #dc3545;
     }
 
     .slot-reserved {
@@ -339,19 +300,11 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
       background-color: #fffdf5;
     }
 
-    .slot-reserved .slot-status-indicator {
-      background-color: #ffc107;
-    }
-
     .slot-inactive {
       border-color: #6c757d;
       background-color: #f6f6f6;
       opacity: 0.6;
       cursor: not-allowed;
-    }
-
-    .slot-inactive .slot-status-indicator {
-      background-color: #6c757d;
     }
 
     .slot-inactive:hover {
@@ -398,27 +351,16 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
       }
 
       .car-grid {
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
       }
 
       .bike-grid {
-        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
       }
 
-      .car-slot {
-        min-height: 80px;
-      }
-
-      .bike-slot {
-        min-height: 60px;
-      }
 
       .slot-number {
-        font-size: 0.75rem;
-      }
-
-      .slot-icon {
-        font-size: 1rem;
+        font-size: 0.55rem;
       }
 
       .stats-summary {
@@ -486,9 +428,7 @@ export class SlotGridComponent implements OnInit, OnChanges {
 
     try {
       this.loading = true;
-      const filters = {
-        limit: 200 // Maximum allowed by backend
-      };
+      const filters = {}; // Service now handles pagination automatically
 
       this.slots = await this.slotService.getLotSlots(this.lotId, filters);
       this.lastUpdated = new Date();
