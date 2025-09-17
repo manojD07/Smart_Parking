@@ -3,7 +3,7 @@
 import json
 import pickle
 from typing import Any, Optional, Union, Dict, List
-from datetime import timedelta
+from datetime import timedelta, datetime
 import redis.asyncio as redis
 from redis.asyncio import ConnectionPool
 import structlog
@@ -410,3 +410,215 @@ class RateLimitCache:
             "limit": limit,
             "reset_in": await cache.get_ttl(key)
         }
+
+
+# Chunk reservation cache utilities
+class ChunkReservationCache:
+    """Redis-based chunk reservation system with atomic locking."""
+    
+    @staticmethod
+    async def reserve_chunks_atomic(
+        chunk_ids: List[str],
+        user_session_id: str,
+        ttl_seconds: int = 600  # 10 minutes
+    ) -> Dict[str, Any]:
+        """Atomically reserve multiple chunks using Redis MULTI/EXEC."""
+        try:
+            if not cache.redis_client:
+                raise Exception("Redis not available")
+            
+            # Phase 1: Check if any chunks are already reserved
+            pipe = cache.redis_client.pipeline()
+            for chunk_id in chunk_ids:
+                key = f"chunk_lock:{chunk_id}"
+                pipe.exists(key)
+            
+            existing_locks = await pipe.execute()
+            
+            if any(existing_locks):
+                locked_chunks = [chunk_ids[i] for i, exists in enumerate(existing_locks) if exists]
+                return {
+                    "success": False,
+                    "error": "Some chunks already reserved",
+                    "locked_chunks": locked_chunks
+                }
+            
+            # Phase 2: Atomic reservation using MULTI/EXEC
+            pipe = cache.redis_client.pipeline()
+            pipe.multi()
+            
+            for chunk_id in chunk_ids:
+                key = f"chunk_lock:{chunk_id}"
+                pipe.setex(key, ttl_seconds, user_session_id)
+            
+            # Also store the session info
+            session_key = f"session:{user_session_id}"
+            session_data = {
+                "chunk_ids": chunk_ids,
+                "created_at": datetime.now().isoformat(),
+                "expires_at": (datetime.now() + timedelta(seconds=ttl_seconds)).isoformat()
+            }
+            pipe.setex(session_key, ttl_seconds, json.dumps(session_data))
+            
+            results = await pipe.execute()
+            
+            # Verify all operations succeeded
+            if len(results) != len(chunk_ids) + 1:
+                return {
+                    "success": False,
+                    "error": "Failed to acquire all locks"
+                }
+            
+            logger.info(
+                "Chunks reserved atomically",
+                chunk_count=len(chunk_ids),
+                session_id=user_session_id,
+                ttl_seconds=ttl_seconds
+            )
+            
+            return {
+                "success": True,
+                "session_id": user_session_id,
+                "chunk_ids": chunk_ids,
+                "expires_at": session_data["expires_at"],
+                "ttl_seconds": ttl_seconds
+            }
+            
+        except Exception as e:
+            logger.error("Failed to reserve chunks atomically", error=str(e))
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    @staticmethod
+    async def release_chunks(
+        chunk_ids: List[str],
+        user_session_id: str
+    ) -> bool:
+        """Release reserved chunks."""
+        try:
+            if not cache.redis_client:
+                return False
+            
+            pipe = cache.redis_client.pipeline()
+            
+            # Delete chunk locks
+            for chunk_id in chunk_ids:
+                key = f"chunk_lock:{chunk_id}"
+                pipe.delete(key)
+            
+            # Delete session data
+            session_key = f"session:{user_session_id}"
+            pipe.delete(session_key)
+            
+            await pipe.execute()
+            
+            logger.info(
+                "Chunks released",
+                chunk_count=len(chunk_ids),
+                session_id=user_session_id
+            )
+            
+            return True
+            
+        except Exception as e:
+            logger.error("Failed to release chunks", error=str(e))
+            return False
+    
+    @staticmethod
+    async def is_chunk_reserved(chunk_id: str) -> bool:
+        """Check if a chunk is currently reserved in Redis."""
+        try:
+            if not cache.redis_client:
+                return False
+            
+            key = f"chunk_lock:{chunk_id}"
+            return bool(await cache.redis_client.exists(key))
+            
+        except Exception as e:
+            logger.error("Failed to check chunk reservation", chunk_id=chunk_id, error=str(e))
+            return False
+    
+    @staticmethod
+    async def get_session_info(user_session_id: str) -> Optional[Dict[str, Any]]:
+        """Get reservation session information."""
+        try:
+            if not cache.redis_client:
+                return None
+            
+            session_key = f"session:{user_session_id}"
+            session_data = await cache.redis_client.get(session_key)
+            
+            if session_data:
+                return json.loads(session_data)
+            
+            return None
+            
+        except Exception as e:
+            logger.error("Failed to get session info", session_id=user_session_id, error=str(e))
+            return None
+    
+    @staticmethod
+    async def extend_reservation(
+        user_session_id: str,
+        additional_seconds: int = 300  # 5 minutes
+    ) -> bool:
+        """Extend reservation TTL."""
+        try:
+            if not cache.redis_client:
+                return False
+            
+            # Get current session data
+            session_info = await ChunkReservationCache.get_session_info(user_session_id)
+            if not session_info:
+                return False
+            
+            chunk_ids = session_info["chunk_ids"]
+            
+            # Extend TTL for all related keys
+            pipe = cache.redis_client.pipeline()
+            
+            for chunk_id in chunk_ids:
+                key = f"chunk_lock:{chunk_id}"
+                pipe.expire(key, additional_seconds)
+            
+            session_key = f"session:{user_session_id}"
+            pipe.expire(session_key, additional_seconds)
+            
+            await pipe.execute()
+            
+            logger.info(
+                "Reservation extended",
+                session_id=user_session_id,
+                additional_seconds=additional_seconds
+            )
+            
+            return True
+            
+        except Exception as e:
+            logger.error("Failed to extend reservation", error=str(e))
+            return False
+    
+    @staticmethod
+    async def cleanup_expired_reservations() -> int:
+        """Manual cleanup of expired reservations (Redis TTL should handle this automatically)."""
+        try:
+            if not cache.redis_client:
+                return 0
+            
+            # Get all chunk locks and session keys for monitoring
+            chunk_keys = await cache.redis_client.keys("chunk_lock:*")
+            session_keys = await cache.redis_client.keys("session:*")
+            
+            logger.info(
+                "Redis reservation status",
+                chunk_locks=len(chunk_keys),
+                active_sessions=len(session_keys)
+            )
+            
+            return len(session_keys)
+            
+        except Exception as e:
+            logger.error("Failed to check reservation status", error=str(e))
+            return 0

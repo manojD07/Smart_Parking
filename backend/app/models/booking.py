@@ -15,6 +15,7 @@ from app.models.base import BaseModel
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.parking import ParkingLot, ParkingSlot
+    from app.models.slot_chunks import SlotTimeChunk
 
 
 class BookingStatus(str, Enum):
@@ -122,6 +123,11 @@ class Booking(BaseModel):
         "SlotAllocation", 
         back_populates="booking",
         cascade="all, delete-orphan",
+        lazy="select"
+    )
+    time_chunks: Mapped[List["SlotTimeChunk"]] = relationship(
+        "SlotTimeChunk",
+        back_populates="booking",
         lazy="select"
     )
     

@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     default_page_size: int = Field(default=20, description="Default pagination size")
     max_page_size: int = Field(default=100, description="Maximum pagination size")
     
+    # Slot time chunks
+    slot_time_chunk_size: int = Field(default=30, description="Time chunk size in minutes")
+    
     
     @property
     def is_development(self) -> bool:

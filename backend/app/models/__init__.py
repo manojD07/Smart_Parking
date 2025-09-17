@@ -4,6 +4,7 @@ from app.models.user import User
 from app.models.parking import ParkingLot, ParkingSlot
 from app.models.booking import Booking, SlotAllocation
 from app.models.pricing import PricingRule
+from app.models.slot_chunks import SlotTimeChunk
 
 __all__ = [
     "User",
@@ -12,4 +13,5 @@ __all__ = [
     "Booking",
     "SlotAllocation", 
     "PricingRule",
+    "SlotTimeChunk",
 ]

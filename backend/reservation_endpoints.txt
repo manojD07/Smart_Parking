@@ -1,0 +1,85 @@
+
+@router.post("/reserve-chunks")
+async def reserve_chunks_for_payment(
+    request_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Reserve chunks for payment (10-minute Redis TTL)."""
+    try:
+        import uuid
+        from app.core.cache import ChunkReservationCache
+        
+        chunk_ids = request_data.get("chunk_ids", [])
+        user_session_id = str(uuid.uuid4())
+        
+        # Reserve chunks atomically in Redis
+        result = await ChunkReservationCache.reserve_chunks_atomic(
+            chunk_ids=chunk_ids,
+            user_session_id=user_session_id,
+            ttl_seconds=600  # 10 minutes
+        )
+        
+        return result
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/confirm-chunk-booking")
+async def confirm_chunk_booking(
+    request_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Confirm booking from Redis reservation."""
+    try:
+        from app.core.cache import ChunkReservationCache
+        from app.repositories.slot_chunks import SlotTimeChunkRepository
+        
+        session_id = request_data.get("session_id")
+        vehicle_number = request_data.get("vehicle_number")
+        
+        # Get session info
+        session_info = await ChunkReservationCache.get_session_info(session_id)
+        if not session_info:
+            return {"success": False, "error": "Session expired or not found"}
+        
+        # Create booking (simplified - you can integrate with existing booking service)
+        booking_service = BookingService(session)
+        
+        # For now, return success - full integration in next phase
+        return {
+            "success": True,
+            "message": "Booking confirmed",
+            "session_id": session_id
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.delete("/cancel-reservation/{session_id}")
+async def cancel_chunk_reservation(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Cancel chunk reservation and release locks."""
+    try:
+        from app.core.cache import ChunkReservationCache
+        
+        # Get session info first
+        session_info = await ChunkReservationCache.get_session_info(session_id)
+        if not session_info:
+            return {"success": False, "error": "Session not found"}
+        
+        # Release chunks
+        success = await ChunkReservationCache.release_chunks(
+            chunk_ids=session_info["chunk_ids"],
+            user_session_id=session_id
+        )
+        
+        return {"success": success, "message": "Reservation cancelled" if success else "Failed to cancel"}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}

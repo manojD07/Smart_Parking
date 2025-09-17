@@ -11,6 +11,7 @@ from app.models.base import BaseModel
 if TYPE_CHECKING:
     from app.models.booking import Booking, SlotAllocation
     from app.models.pricing import PricingRule
+    from app.models.slot_chunks import SlotTimeChunk
 
 
 class VehicleType(str, Enum):
@@ -186,6 +187,12 @@ class ParkingSlot(BaseModel):
     )
     slot_allocations: Mapped[List["SlotAllocation"]] = relationship(
         "SlotAllocation", 
+        back_populates="slot",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
+    time_chunks: Mapped[List["SlotTimeChunk"]] = relationship(
+        "SlotTimeChunk",
         back_populates="slot",
         cascade="all, delete-orphan",
         lazy="select"
