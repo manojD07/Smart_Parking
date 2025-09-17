@@ -169,53 +169,176 @@ interface PaginationInfo {
         </div>
       </div>
 
-      <!-- Parking Lots Grid -->
-      <div class="row">
+      <!-- Parking Lots List -->
+      <div class="card border-0 shadow-sm">
         <!-- Loading State -->
-        <div class="col-12" *ngIf="loading">
+        <div *ngIf="loading">
           <app-loading-state 
-            type="cards" 
+            type="table" 
             loadingText="Loading parking lots..."
-            [itemCount]="6">
+            [itemCount]="10"
+            [tableHeaders]="['Name', 'Address', 'Capacity', 'Rates', 'Status', 'Actions']">
           </app-loading-state>
         </div>
 
         <!-- Empty State -->
-        <div class="col-12" *ngIf="!loading && paginatedLots.length === 0">
-          <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-5">
-              <div class="text-muted">
-                <i class="fas fa-building fa-3x mb-3 d-block opacity-25"></i>
-                <h5 *ngIf="!hasSearchFilters">No Parking Lots Found</h5>
-                <h5 *ngIf="hasSearchFilters">No Matching Lots Found</h5>
-                <p *ngIf="!hasSearchFilters">Create your first parking lot to get started</p>
-                <p *ngIf="hasSearchFilters">Try adjusting your search criteria</p>
-                <button 
-                  *ngIf="!hasSearchFilters" 
-                  class="btn btn-primary mt-3"
-                  (click)="openCreateModal()">
-                  <i class="fas fa-plus me-2"></i>Create First Lot
-                </button>
-                <button 
-                  *ngIf="hasSearchFilters" 
-                  class="btn btn-outline-primary mt-3"
-                  (click)="clearAllFilters()">
-                  <i class="fas fa-times me-2"></i>Clear Filters
-                </button>
-              </div>
-            </div>
+        <div *ngIf="!loading && paginatedLots.length === 0" class="card-body text-center py-5">
+          <div class="text-muted">
+            <i class="fas fa-building fa-3x mb-3 d-block opacity-25"></i>
+            <h5 *ngIf="!hasSearchFilters">No Parking Lots Found</h5>
+            <h5 *ngIf="hasSearchFilters">No Matching Lots Found</h5>
+            <p *ngIf="!hasSearchFilters">Create your first parking lot to get started</p>
+            <p *ngIf="hasSearchFilters">Try adjusting your search criteria</p>
+            <button 
+              *ngIf="!hasSearchFilters" 
+              class="btn btn-primary mt-3"
+              (click)="openCreateModal()">
+              <i class="fas fa-plus me-2"></i>Create First Lot
+            </button>
+            <button 
+              *ngIf="hasSearchFilters" 
+              class="btn btn-outline-primary mt-3"
+              (click)="clearAllFilters()">
+              <i class="fas fa-times me-2"></i>Clear Filters
+            </button>
           </div>
         </div>
 
-        <!-- Parking Lot Cards -->
-        <div class="col-lg-4 col-md-6 mb-4" *ngFor="let lot of paginatedLots; trackBy: trackByLotId">
-          <app-parking-lot-card
-            [lot]="lot"
-            (viewSlots)="onViewSlots($event)"
-            (edit)="onEditLot($event)"
-            (delete)="onDeleteLot($event)"
-            (toggleStatus)="onToggleStatus($event)">
-          </app-parking-lot-card>
+        <!-- Parking Lots Table -->
+        <div *ngIf="!loading && paginatedLots.length > 0" class="table-responsive" style="overflow-y: visible;">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Parking Lot</th>
+                <th>Location</th>
+                <th>Capacity</th>
+                <th>Hourly Rates</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let lot of paginatedLots; trackBy: trackByLotId" [class.table-warning]="!lot.is_active">
+                <!-- Parking Lot Name & Info -->
+                <td>
+                  <div class="d-flex align-items-center">
+                    <div class="lot-icon me-3">
+                      <i class="fas fa-building text-primary"></i>
+                    </div>
+                    <div>
+                      <div class="fw-semibold">{{ lot.name }}</div>
+                      <div class="text-muted small">ID: {{ lot.id.substring(0, 8) }}...</div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Location -->
+                <td>
+                  <div class="location-info">
+                    <div class="text-truncate" style="max-width: 200px;" [title]="lot.address">
+                      <i class="fas fa-map-marker-alt text-muted me-1"></i>
+                      {{ lot.address }}
+                    </div>
+                    <div class="text-muted small">
+                      {{ lot.latitude }}, {{ lot.longitude }}
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Capacity -->
+                <td>
+                  <div class="capacity-info">
+                    <div class="d-flex align-items-center mb-1">
+                      <i class="fas fa-car text-primary me-1"></i>
+                      <span class="me-2">{{ lot.total_car_slots }}</span>
+                      <i class="fas fa-motorcycle text-success me-1"></i>
+                      <span>{{ lot.total_bike_slots }}</span>
+                    </div>
+                    <div class="text-muted small">
+                      Total: {{ lot.total_car_slots + lot.total_bike_slots }} slots
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Hourly Rates -->
+                <td>
+                  <div class="rates-info">
+                    <div class="small">
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted">Car:</span>
+                        <span class="fw-semibold text-success">₹{{ lot.hourly_rate_car }}/hr</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted">Bike:</span>
+                        <span class="fw-semibold text-success">₹{{ lot.hourly_rate_bike }}/hr</span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Status -->
+                <td>
+                  <span class="badge" [class]="lot.is_active ? 'bg-success' : 'bg-danger'">
+                    <i class="fas" [class]="lot.is_active ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                    {{ lot.is_active ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+
+                <!-- Created Date -->
+                <td>
+                  <div class="text-muted small">
+                    {{ formatDate(lot.created_at) }}
+                  </div>
+                </td>
+
+                <!-- Actions -->
+                <td class="text-center">
+                  <div class="btn-group btn-group-sm" role="group">
+                    <button 
+                      type="button" 
+                      class="btn btn-outline-primary"
+                      (click)="onViewSlots(lot)"
+                      [title]="'View slots for ' + lot.name">
+                      <i class="fas fa-th-large"></i>
+                    </button>
+                    
+                    <div class="btn-group btn-group-sm" role="group">
+                      <button 
+                        class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" 
+                        type="button" 
+                        [id]="'lotActions' + lot.id" 
+                        data-bs-toggle="dropdown"
+                        data-bs-auto-close="true"
+                        aria-expanded="false"
+                        [title]="'More actions for ' + lot.name">
+                        <i class="fas fa-ellipsis-v"></i>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end" [attr.aria-labelledby]="'lotActions' + lot.id">
+                        <li>
+                          <a class="dropdown-item" href="#" (click)="onEditLot(lot); $event.preventDefault()">
+                            <i class="fas fa-edit me-2"></i>Edit Details
+                          </a>
+                        </li>
+                        <li>
+                          <a class="dropdown-item" href="#" (click)="onToggleStatus(lot); $event.preventDefault()">
+                            <i class="fas" [class]="lot.is_active ? 'fa-ban' : 'fa-check'"></i>
+                            {{ lot.is_active ? 'Deactivate' : 'Activate' }}
+                          </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                          <a class="dropdown-item text-danger" href="#" (click)="onDeleteLot(lot); $event.preventDefault()">
+                            <i class="fas fa-trash me-2"></i>Delete Lot
+                          </a>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -322,18 +445,125 @@ interface PaginationInfo {
       opacity: 0.25;
     }
 
+    .lot-icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .table th {
+      border-top: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #6c757d;
+      white-space: nowrap;
+    }
+
+    .table td {
+      vertical-align: middle;
+      padding: 1rem 0.75rem;
+    }
+
+    .table-hover tbody tr:hover {
+      background-color: #f8f9fa;
+    }
+
+    .table-warning {
+      --bs-table-bg: #fff3cd;
+      --bs-table-striped-bg: #ffecb5;
+      --bs-table-striped-color: #000;
+      --bs-table-active-bg: #ffdf9e;
+      --bs-table-active-color: #000;
+      --bs-table-hover-bg: #ffe69c;
+      --bs-table-hover-color: #000;
+      color: #664d03;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 0.375rem 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .btn-group-sm .btn {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .dropdown-toggle-split {
+      padding-left: 0.375rem;
+      padding-right: 0.375rem;
+    }
+
+    .dropdown-toggle-split::after {
+      margin-left: 0;
+    }
+
+    .dropdown-menu {
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border: 1px solid #e5e7eb;
+      font-size: 0.875rem;
+      z-index: 1050;
+      position: absolute;
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+      overflow-y: visible;
+      padding-bottom: 120px;
+      margin-bottom: -120px;
+    }
+
+    .btn-group {
+      position: static;
+    }
+
+    .dropdown-item {
+      padding: 0.5rem 1rem;
+    }
+
+    .dropdown-item:hover {
+      background-color: #f3f4f6;
+    }
+
+    .dropdown-item.text-danger:hover {
+      background-color: #fef2f2;
+      color: #dc2626 !important;
+    }
+
     @media (max-width: 768px) {
       .d-flex.justify-content-between {
         flex-direction: column;
         gap: 1rem;
       }
 
-      .btn-group {
-        width: 100%;
-      }
-
       .pagination {
         justify-content: center;
+      }
+
+      .table-responsive {
+        font-size: 0.875rem;
+      }
+
+      .location-info .text-truncate {
+        max-width: 150px !important;
+      }
+
+      .capacity-info,
+      .rates-info {
+        font-size: 0.8rem;
+      }
+
+      .btn-group-sm .btn {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
       }
     }
   `]
@@ -359,7 +589,7 @@ export class ParkingLotListComponent implements OnInit, OnDestroy {
   // Pagination
   pagination: PaginationInfo = {
     currentPage: 1,
-    pageSize: 12,
+    pageSize: 20,
     totalItems: 0,
     totalPages: 0
   };
@@ -664,6 +894,14 @@ export class ParkingLotListComponent implements OnInit, OnDestroy {
 
   trackByLotId(index: number, lot: ParkingLot): string {
     return lot.id;
+  }
+
+  formatDate(dateString: string): string {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   }
 
   // Computed properties for confirmation modals
