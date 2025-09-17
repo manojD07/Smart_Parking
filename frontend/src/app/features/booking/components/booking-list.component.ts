@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
@@ -274,9 +274,20 @@ export class BookingListComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  constructor(private bookingService: BookingService) {}
+  constructor(
+    private bookingService: BookingService,
+    private route: ActivatedRoute
+  ) {}
 
   ngOnInit(): void {
+    // Check for filter query parameter
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      const filter = params['filter'];
+      if (filter && ['all', 'active', 'upcoming', 'completed', 'cancelled'].includes(filter)) {
+        this.selectedFilter = filter;
+      }
+    });
+    
     this.loadBookings();
   }
 
