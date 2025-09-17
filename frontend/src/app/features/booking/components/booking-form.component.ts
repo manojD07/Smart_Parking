@@ -6,13 +6,15 @@ import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { ParkingService } from '../../parking/services/parking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
+import { ChunkSelectorComponent } from './chunk-selector.component';
 import { ParkingLot } from '../../../core/models/parking.model';
 import { PricingPreviewResponse, Booking } from '../../../core/models/booking.model';
+import { TimeChunk } from '../../../core/models/slot-chunks.model';
 
 @Component({
   selector: 'app-booking-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LoadingComponent],
+  imports: [CommonModule, ReactiveFormsModule, LoadingComponent, ChunkSelectorComponent],
   template: `
     <div class="container mt-4">
       <div class="row">
@@ -116,37 +118,46 @@ import { PricingPreviewResponse, Booking } from '../../../core/models/booking.mo
                     </div>
                   </div>
 
-                  <div class="row">
+                  <!-- Time Chunk Selection -->
+                  <div class="row mb-4" *ngIf="selectedLot && bookingForm.get('vehicleType')?.value">
+                    <div class="col-12">
+                      <h6 class="mb-3">
+                        <i class="fas fa-clock me-2"></i>
+                        Select Time Slots (30-minute chunks)
+                      </h6>
+                      <app-chunk-selector
+                        [slotId]="selectedLot.id"
+                        [vehicleType]="bookingForm.get('vehicleType')?.value"
+                        (chunksSelected)="onChunksSelected($event)"
+                        (timeRangeChanged)="onTimeRangeChanged($event)"
+                      ></app-chunk-selector>
+                      
+                      <!-- Info -->
+                      <div class="mt-2 p-2 bg-light small text-muted" *ngIf="selectedLot">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Showing time slots for <strong>{{ selectedLot.name }}</strong> - 
+                        <span class="text-success">{{ (bookingForm.get('vehicleType')?.value | titlecase) || 'Select vehicle type' }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Time Range Display (for form validation) -->
+                  <div class="row" style="display: none;">
                     <div class="col-md-6 mb-3">
-                      <label for="startTime" class="form-label">Start Time</label>
                       <input
                         type="datetime-local"
                         class="form-control"
                         id="startTime"
                         formControlName="startTime"
-                        [class.is-invalid]="isFieldInvalid('startTime')"
-                        [min]="minStartTime"
-                        (change)="onTimeChange()"
                       />
-                      <div class="invalid-feedback" *ngIf="isFieldInvalid('startTime')">
-                        Please select a start time
-                      </div>
                     </div>
-
                     <div class="col-md-6 mb-3">
-                      <label for="endTime" class="form-label">End Time</label>
                       <input
                         type="datetime-local"
                         class="form-control"
                         id="endTime"
                         formControlName="endTime"
-                        [class.is-invalid]="isFieldInvalid('endTime')"
-                        [min]="minEndTime"
-                        (change)="onTimeChange()"
                       />
-                      <div class="invalid-feedback" *ngIf="isFieldInvalid('endTime')">
-                        Please select an end time
-                      </div>
                     </div>
                   </div>
 
@@ -295,6 +306,9 @@ export class BookingFormComponent implements OnInit, OnDestroy {
   submitting = false;
   errorMessage = '';
   
+  // Chunk selection properties
+  selectedChunks: TimeChunk[] = [];
+  chunkSessionId: string | null = null;
   
   private destroy$ = new Subject<void>();
 
@@ -410,6 +424,44 @@ export class BookingFormComponent implements OnInit, OnDestroy {
     this.calculatePricing();
   }
 
+  onChunksSelected(chunks: TimeChunk[]): void {
+    this.selectedChunks = chunks;
+    console.log('Chunks selected:', chunks);
+    
+    // Update form with time range from selected chunks
+    if (chunks.length > 0) {
+      const sortedChunks = [...chunks].sort((a, b) => 
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
+      
+      const startTime = new Date(sortedChunks[0].start_time);
+      const endTime = new Date(sortedChunks[sortedChunks.length - 1].end_time);
+      
+      this.bookingForm.patchValue({
+        startTime: this.formatDateTimeLocal(startTime),
+        endTime: this.formatDateTimeLocal(endTime)
+      });
+      
+      this.calculatePricing();
+    }
+  }
+
+  onTimeRangeChanged(event: {startTime: string, endTime: string, sessionId?: string}): void {
+    console.log('Time range changed:', event);
+    
+    if (event.sessionId) {
+      this.chunkSessionId = event.sessionId;
+    }
+    
+    // Update form values
+    this.bookingForm.patchValue({
+      startTime: event.startTime,
+      endTime: event.endTime
+    });
+    
+    this.calculatePricing();
+  }
+
   private calculatePricing(): void {
     if (this.bookingForm.valid && this.selectedLot) {
       this.loadingPrice = true;
@@ -449,15 +501,29 @@ export class BookingFormComponent implements OnInit, OnDestroy {
       const startDate = new Date(formValue.startTime);
       const endDate = new Date(formValue.endTime);
       
-      const bookingData = {
-        lot_id: this.selectedLot.id,
-        vehicle_type: formValue.vehicleType,
-        vehicle_number: formValue.vehicleNumber.toUpperCase(),
-        start_time: startDate.toISOString(),
-        end_time: endDate.toISOString()
-      };
+      // Use chunk-based booking if chunks are selected, otherwise use regular booking
+      let bookingObservable;
+      
+      if (this.selectedChunks.length > 0 && this.chunkSessionId) {
+        const chunkBookingData = {
+          session_id: this.chunkSessionId,
+          vehicle_number: formValue.vehicleNumber.toUpperCase()
+        };
 
-      this.bookingService.createBooking(bookingData)
+        bookingObservable = this.bookingService.confirmChunkBooking(chunkBookingData);
+      } else {
+        const bookingData = {
+          lot_id: this.selectedLot.id,
+          vehicle_type: formValue.vehicleType,
+          vehicle_number: formValue.vehicleNumber.toUpperCase(),
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString()
+        };
+
+        bookingObservable = this.bookingService.createBooking(bookingData);
+      }
+
+      bookingObservable
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (booking) => {
@@ -493,5 +559,15 @@ export class BookingFormComponent implements OnInit, OnDestroy {
 
   formatDateTime(dateTime: string): string {
     return new Date(dateTime).toLocaleString();
+  }
+
+  private formatDateTimeLocal(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 }

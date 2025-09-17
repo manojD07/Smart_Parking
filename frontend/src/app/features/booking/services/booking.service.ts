@@ -70,6 +70,30 @@ export class BookingService extends BaseApiService {
     return this.post<PricingPreviewResponse>('/bookings/pricing-preview', pricingRequest);
   }
 
+  // Chunk-based booking methods
+  getSlotChunkAvailability(slotId: string, startTime: string, endTime: string): Observable<any> {
+    return this.get<any>(`/chunks/slots/${slotId}/chunks/availability`, {
+      start_time: startTime,
+      end_time: endTime
+    });
+  }
+
+  reserveSlotChunks(reservationRequest: any): Observable<any> {
+    return this.post<any>('/chunks/reserve-chunks', reservationRequest);
+  }
+
+  confirmChunkBooking(confirmRequest: any): Observable<any> {
+    return this.post<any>('/chunks/confirm-reservation', confirmRequest);
+  }
+
+  extendReservation(sessionId: string): Observable<any> {
+    return this.put<any>(`/chunks/extend-reservation/${sessionId}`, {});
+  }
+
+  cancelReservation(sessionId: string): Observable<any> {
+    return this.delete<any>(`/chunks/cancel-reservation/${sessionId}`);
+  }
+
   // Format booking time for display
   formatBookingTime(dateTime: string): string {
     return new Date(dateTime).toLocaleString();
