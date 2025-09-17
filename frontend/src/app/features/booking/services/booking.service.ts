@@ -114,4 +114,53 @@ export class BookingService extends BaseApiService {
       slotId: booking.slot_id
     });
   }
+
+  // ===== CHUNK-BASED BOOKING METHODS =====
+
+  /**
+   * Get chunk availability for a specific slot
+   */
+  getSlotChunkAvailability(
+    slotId: string,
+    startTime: string,
+    endTime: string
+  ): Observable<any> {
+    return this.get<any>(`/bookings/slots/${slotId}/chunks`, {
+      start_time: startTime,
+      end_time: endTime
+    });
+  }
+
+  /**
+   * Reserve chunks for payment (10-minute Redis TTL)
+   */
+  reserveChunks(chunkIds: string[]): Observable<any> {
+    return this.post<any>('/bookings/reserve-chunks', {
+      chunk_ids: chunkIds
+    });
+  }
+
+  /**
+   * Confirm booking from Redis reservation
+   */
+  confirmChunkBooking(sessionId: string, vehicleNumber: string): Observable<any> {
+    return this.post<any>('/bookings/confirm-chunk-booking', {
+      session_id: sessionId,
+      vehicle_number: vehicleNumber
+    });
+  }
+
+  /**
+   * Cancel chunk reservation
+   */
+  cancelChunkReservation(sessionId: string): Observable<any> {
+    return this.delete<any>(`/bookings/cancel-reservation/${sessionId}`);
+  }
+
+  /**
+   * Get session information
+   */
+  getSessionInfo(sessionId: string): Observable<any> {
+    return this.get<any>(`/bookings/session/${sessionId}`);
+  }
 }

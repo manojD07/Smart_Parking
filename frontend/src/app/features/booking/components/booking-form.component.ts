@@ -6,13 +6,15 @@ import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { ParkingService } from '../../parking/services/parking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
+import { ChunkSelectorComponent } from './chunk-selector.component';
 import { ParkingLot } from '../../../core/models/parking.model';
 import { PricingPreviewResponse, Booking } from '../../../core/models/booking.model';
+import { TimeChunk, ChunkSelectionEvent } from '../../../core/models/slot-chunks.model';
 
 @Component({
   selector: 'app-booking-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LoadingComponent],
+  imports: [CommonModule, ReactiveFormsModule, LoadingComponent, ChunkSelectorComponent],
   template: `
     <div class="container mt-4">
       <div class="row">
@@ -146,6 +148,25 @@ import { PricingPreviewResponse, Booking } from '../../../core/models/booking.mo
                       />
                       <div class="invalid-feedback" *ngIf="isFieldInvalid('endTime')">
                         Please select an end time
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Parking Slot - Time Selection -->
+                  <div class="row" *ngIf="selectedSlotId && bookingForm.get('vehicleType')?.value">
+                    <div class="col-12 mb-3">
+                      <label class="form-label">
+                        <i class="fas fa-clock me-2"></i>
+                        Parking Slot - Time Selection
+                      </label>
+                      <app-chunk-selector
+                        [slotId]="selectedSlotId"
+                        [vehicleType]="bookingForm.get('vehicleType')?.value"
+                        (selectionChanged)="onChunkSelectionChanged($event)"
+                        (timeRangeChanged)="onTimeRangeChanged($event)">
+                      </app-chunk-selector>
+                      <div class="form-text">
+                        Select available time slots for your parking reservation
                       </div>
                     </div>
                   </div>
@@ -289,12 +310,16 @@ import { PricingPreviewResponse, Booking } from '../../../core/models/booking.mo
 export class BookingFormComponent implements OnInit, OnDestroy {
   bookingForm: FormGroup;
   selectedLot: ParkingLot | null = null;
+  selectedSlotId: string = '';
   pricingPreview: PricingPreviewResponse | null = null;
   loading = true;
   loadingPrice = false;
   submitting = false;
   errorMessage = '';
   
+  // Chunk-based booking properties
+  selectedChunks: TimeChunk[] = [];
+  chunkSelectionActive = false;
   
   private destroy$ = new Subject<void>();
 
@@ -365,6 +390,20 @@ export class BookingFormComponent implements OnInit, OnDestroy {
         .subscribe({
           next: (lot) => {
             this.selectedLot = lot;
+            
+            // Get the first available slot for chunk selection
+            this.parkingService.getParkingSlots(lot.id).subscribe({
+              next: (slots) => {
+                if (slots.length > 0) {
+                  this.selectedSlotId = slots[0].id; // Use first available slot
+                  console.log('Selected slot ID for chunks:', this.selectedSlotId);
+                }
+              },
+              error: (error) => {
+                console.warn('Failed to get slots:', error);
+              }
+            });
+            
             this.prefillForm(queryParams);
             this.loading = false;
           },
@@ -408,6 +447,43 @@ export class BookingFormComponent implements OnInit, OnDestroy {
 
   onTimeChange(): void {
     this.calculatePricing();
+  }
+
+  // ===== CHUNK-BASED BOOKING METHODS =====
+  
+  onChunkSelectionChanged(event: ChunkSelectionEvent): void {
+    this.selectedChunks = event.selectedChunks;
+    this.chunkSelectionActive = this.selectedChunks.length > 0;
+    
+    // Update form times based on chunk selection
+    if (this.selectedChunks.length > 0) {
+      const startTime = new Date(event.startTime);
+      const endTime = new Date(event.endTime);
+      
+      // Convert to datetime-local format
+      this.bookingForm.patchValue({
+        startTime: this.toDateTimeLocal(startTime),
+        endTime: this.toDateTimeLocal(endTime)
+      });
+      
+      // Recalculate pricing
+      this.calculatePricing();
+    }
+  }
+  
+  onTimeRangeChanged(event: { startTime: string; endTime: string; sessionId?: string }): void {
+    // This is called when chunk selection changes the time range
+    console.log('Time range changed:', event);
+  }
+  
+  private toDateTimeLocal(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 
   private calculatePricing(): void {
