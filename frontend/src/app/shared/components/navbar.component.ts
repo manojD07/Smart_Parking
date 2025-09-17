@@ -10,7 +10,7 @@ import { User } from '../../core/models/user.model';
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #4e73df 0%, #224abe 100%) !important; min-height: 60px;">
+      <nav class="navbar navbar-expand-lg navbar-dark fixed-top" style="background: linear-gradient(135deg, #4e73df 0%, #224abe 100%) !important; min-height: 60px; z-index: 1030;">
       <div class="container">
         <a class="navbar-brand fw-bold brand-link" routerLink="/">
           <i class="fas fa-parking me-2"></i>

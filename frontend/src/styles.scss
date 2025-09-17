@@ -5,6 +5,7 @@
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #f8f9fa;
+  padding-top: 76px; /* Account for fixed navbar height (60px + 16px margin) */
 }
 
 .navbar-brand {
