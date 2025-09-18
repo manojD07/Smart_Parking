@@ -491,20 +491,26 @@ class ParkingSlotRepository(BaseRepository[ParkingSlot]):
             self.logger.error("Failed to check slot bike capacity", slot_id=slot_id, error=str(e))
             return False
     
-    async def get_slots_by_lot(self, lot_id: UUID, skip: int = 0, limit: int = 100) -> List[ParkingSlot]:
-        """Get all slots for a parking lot."""
+    async def get_slots_by_lot(self, lot_id: UUID, skip: int = 0, limit: int = 100, **filters) -> List[ParkingSlot]:
+        """Get all slots for a parking lot with optional filters."""
         try:
-            query = (
-                select(ParkingSlot)
-                .where(ParkingSlot.lot_id == lot_id)
-                .offset(skip)
-                .limit(limit)
-            )
+            query = select(ParkingSlot).where(ParkingSlot.lot_id == lot_id)
+            
+            # Apply filters
+            if 'slot_type' in filters:
+                query = query.where(ParkingSlot.slot_type == filters['slot_type'])
+            
+            if 'status' in filters:
+                query = query.where(ParkingSlot.status == filters['status'])
+            
+            # Apply pagination
+            query = query.offset(skip).limit(limit)
+            
             result = await self.session.execute(query)
             return list(result.scalars().all())
             
         except Exception as e:
-            self.logger.error("Failed to get slots by lot", lot_id=lot_id, error=str(e))
+            self.logger.error("Failed to get slots by lot", lot_id=lot_id, filters=filters, error=str(e))
             raise
     
     async def update_slot_status(self, slot_id: UUID, status: SlotStatus) -> bool:

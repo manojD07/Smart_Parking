@@ -221,12 +221,12 @@ import { ConfirmationModalComponent } from '../shared/confirmation-modal.compone
             <button 
               type="button" 
               class="btn btn-sm me-2"
-              [class]="selectedSlot?.status === 'INACTIVE' ? 'btn-success' : 'btn-warning'"
+              [class]="(selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive') ? 'btn-success' : 'btn-warning'"
               (click)="toggleSlotStatus()"
               [disabled]="!selectedSlot || selectedSlot.is_occupied || selectedSlot.is_reserved || togglingSlotStatus">
               <span *ngIf="togglingSlotStatus" class="spinner-border spinner-border-sm me-2" role="status"></span>
-              <i *ngIf="!togglingSlotStatus" class="fas" [class]="selectedSlot?.status === 'INACTIVE' ? 'fa-check' : 'fa-ban'"></i>
-              {{ selectedSlot?.status === 'INACTIVE' ? 'Activate' : 'Deactivate' }}
+              <i *ngIf="!togglingSlotStatus" class="fas" [class]="(selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive') ? 'fa-check' : 'fa-ban'"></i>
+              {{ (selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive') ? 'Reactivate' : 'Deactivate' }}
             </button>
           </div>
         </div>
@@ -412,12 +412,12 @@ export class SlotOverviewComponent implements OnInit {
 
     try {
       this.togglingSlotStatus = true;
-      const isCurrentlyInactive = this.selectedSlot.status === 'INACTIVE';
+      const isCurrentlyInactive = this.selectedSlot.status === 'INACTIVE' || this.selectedSlot.status === 'inactive';
       console.log('🔄 Toggling slot status:', this.selectedSlot.slot_number, 'Currently inactive:', isCurrentlyInactive);
       
       let success: boolean;
       if (isCurrentlyInactive) {
-        success = await this.slotService.activateSlot(this.selectedSlot.id);
+        success = await this.slotService.reactivateSlot(this.selectedSlot.id);
       } else {
         success = await this.slotService.deactivateSlot(this.selectedSlot.id);
       }
@@ -438,13 +438,13 @@ export class SlotOverviewComponent implements OnInit {
           await this.slotGrid.refreshSlots();
         }
       } else {
-        const action = isCurrentlyInactive ? 'activate' : 'deactivate';
+        const action = isCurrentlyInactive ? 'reactivate' : 'deactivate';
         this.toastService.showError(`Failed to ${action} slot`);
       }
 
     } catch (error) {
       console.error('Error toggling slot status:', error);
-      const action = this.selectedSlot.status === 'INACTIVE' ? 'activate' : 'deactivate';
+      const action = this.selectedSlot.status === 'INACTIVE' ? 'reactivate' : 'deactivate';
       
       if (error instanceof Error && error.message.includes('backend implementation')) {
         this.toastService.showWarning(`Slot ${action} feature requires backend API implementation`);

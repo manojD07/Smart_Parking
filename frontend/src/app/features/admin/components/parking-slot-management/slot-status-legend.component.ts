@@ -118,6 +118,10 @@ interface LegendItem {
       background-color: #6c757d;
     }
 
+    .slot-maintenance {
+      background-color: #fd7e14;
+    }
+
     @media (max-width: 768px) {
       .legend-container {
         padding: 0.75rem;
@@ -146,6 +150,7 @@ export class SlotStatusLegendComponent {
   @Input() occupiedCount?: number;
   @Input() reservedCount?: number;
   @Input() inactiveCount?: number;
+  @Input() maintenanceCount?: number;
 
   get legendItems(): LegendItem[] {
     return [
@@ -172,6 +177,12 @@ export class SlotStatusLegendComponent {
         class: 'slot-inactive',
         icon: 'fa-ban',
         count: this.inactiveCount
+      },
+      {
+        label: 'Maintenance',
+        class: 'slot-maintenance',
+        icon: 'fa-wrench',
+        count: this.maintenanceCount
       }
     ];
   }

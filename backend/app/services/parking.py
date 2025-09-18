@@ -2,13 +2,13 @@
 
 from typing import List, Optional, Dict, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.base import BaseService
 from app.repositories.parking import ParkingLotRepository, ParkingSlotRepository
-from app.models.parking import ParkingLot, ParkingSlot, VehicleType
+from app.models.parking import ParkingLot, ParkingSlot, VehicleType, SlotStatus
 from app.core.exceptions import ValidationError, NotFoundError, BusinessLogicError
 import structlog
 
@@ -112,8 +112,7 @@ class ParkingService(BaseService[ParkingLot, ParkingLotRepository]):
     
     async def get_lot_slots(self, lot_id: UUID, skip: int = 0, limit: int = 100, **filters) -> List[ParkingSlot]:
         """Get slots for a parking lot."""
-        # Note: filters are currently ignored - this might be the issue
-        return await self.slot_repository.get_slots_by_lot(lot_id, skip, limit)
+        return await self.slot_repository.get_slots_by_lot(lot_id, skip, limit, **filters)
     
     async def create_parking_slot(self, lot_id: UUID, slot_number: str, slot_type: str) -> ParkingSlot:
         """Create a parking slot."""
@@ -126,6 +125,129 @@ class ParkingService(BaseService[ParkingLot, ParkingLotRepository]):
     async def get_lot_statistics(self, lot_id: UUID) -> Dict[str, Any]:
         """Get statistics for a parking lot."""
         return await self.lot_repository.get_lot_statistics(lot_id)
+    
+    async def get_slot_by_id(self, slot_id: UUID) -> Optional[ParkingSlot]:
+        """Get slot by ID."""
+        return await self.slot_repository.get_by_id(slot_id)
+    
+    async def deactivate_slot(self, slot_id: UUID) -> ParkingSlot:
+        """Deactivate a parking slot (admin only)."""
+        try:
+            # Get slot
+            slot = await self.slot_repository.get_by_id(slot_id)
+            if not slot:
+                raise NotFoundError("Slot not found")
+            
+            self.logger.info("Attempting to deactivate slot", slot_id=slot_id, current_status=slot.status)
+            
+            # Simple validation: Only deactivate AVAILABLE slots
+            if slot.status != SlotStatus.AVAILABLE.value:
+                raise ValidationError(f"Cannot deactivate slot with status: {slot.status}")
+            
+            # Basic validation: Check occupancy flags
+            if slot.is_occupied or slot.is_reserved:
+                raise ValidationError("Cannot deactivate occupied or reserved slot")
+            
+            # Set to INACTIVE
+            await self.slot_repository.update_slot_status(slot_id, SlotStatus.INACTIVE)
+            
+            self.logger.info("Slot deactivated successfully", slot_id=slot_id, slot_number=slot.slot_number)
+            return await self.slot_repository.get_by_id(slot_id)
+            
+        except (NotFoundError, ValidationError, BusinessLogicError):
+            raise
+        except Exception as e:
+            self.logger.error("Failed to deactivate slot", slot_id=slot_id, error=str(e))
+            raise BusinessLogicError("Failed to deactivate slot")
+    
+    async def reactivate_slot(self, slot_id: UUID) -> ParkingSlot:
+        """Reactivate an inactive parking slot (admin only)."""
+        try:
+            # Get slot
+            slot = await self.slot_repository.get_by_id(slot_id)
+            if not slot:
+                raise NotFoundError("Slot not found")
+            
+            # Validation: Only reactivate INACTIVE slots
+            if slot.status != SlotStatus.INACTIVE.value:
+                raise ValidationError("Can only reactivate inactive slots")
+            
+            # Set back to AVAILABLE
+            await self.slot_repository.update_slot_status(slot_id, SlotStatus.AVAILABLE)
+            
+            self.logger.info("Slot reactivated", slot_id=slot_id, slot_number=slot.slot_number)
+            return await self.slot_repository.get_by_id(slot_id)
+            
+        except Exception as e:
+            self.logger.error("Failed to reactivate slot", slot_id=slot_id, error=str(e))
+            raise
+    
+    async def delete_inactive_slot(self, slot_id: UUID) -> bool:
+        """Delete an inactive parking slot (admin only)."""
+        try:
+            # Get slot
+            slot = await self.slot_repository.get_by_id(slot_id)
+            if not slot:
+                raise NotFoundError("Slot not found")
+            
+            # Validation: Only delete INACTIVE slots
+            if slot.status != SlotStatus.INACTIVE.value:
+                raise ValidationError("Can only delete inactive slots")
+            
+            # Validation: Check booking history
+            if await self._has_booking_history(slot_id):
+                raise ValidationError("Cannot delete slot with booking history")
+            
+            # Delete slot
+            success = await self.slot_repository.delete(slot_id)
+            
+            if success:
+                self.logger.info("Slot deleted", slot_id=slot_id, slot_number=slot.slot_number)
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error("Failed to delete slot", slot_id=slot_id, error=str(e))
+            raise
+    
+    async def _has_future_bookings(self, slot_id: UUID) -> bool:
+        """Check if slot has future bookings."""
+        try:
+            from app.models.booking import Booking, BookingStatus
+            from sqlalchemy import select, and_
+            
+            query = select(Booking.id).where(
+                and_(
+                    Booking.slot_id == slot_id,
+                    Booking.start_time > datetime.now(timezone.utc),
+                    Booking.status.in_([
+                        BookingStatus.CONFIRMED.value,
+                        BookingStatus.ACTIVE.value,
+                        BookingStatus.PENDING.value
+                    ])
+                )
+            )
+            
+            result = await self.slot_repository.session.execute(query)
+            return result.first() is not None
+            
+        except Exception as e:
+            self.logger.error("Failed to check future bookings", slot_id=slot_id, error=str(e))
+            return True  # Err on the side of caution
+    
+    async def _has_booking_history(self, slot_id: UUID) -> bool:
+        """Check if slot has any booking history."""
+        try:
+            from app.models.booking import Booking
+            from sqlalchemy import select
+            
+            query = select(Booking.id).where(Booking.slot_id == slot_id)
+            result = await self.slot_repository.session.execute(query)
+            return result.first() is not None
+            
+        except Exception as e:
+            self.logger.error("Failed to check booking history", slot_id=slot_id, error=str(e))
+            return True  # Err on the side of caution
     
     def _get_entity_name(self) -> str:
         """Get entity name for base service."""

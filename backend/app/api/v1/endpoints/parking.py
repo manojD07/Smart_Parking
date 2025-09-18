@@ -279,3 +279,59 @@ async def get_lot_statistics(
         
     except BaseApplicationError as e:
         raise create_http_exception(e)
+
+
+# Admin slot management endpoints
+@router.put("/admin/slots/{slot_id}/deactivate", response_model=SuccessResponse)
+async def deactivate_slot(
+    slot_id: UUID,
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Deactivate a parking slot (admin only)."""
+    try:
+        parking_service = ParkingService(session)
+        await parking_service.deactivate_slot(slot_id)
+        return SuccessResponse(message="Slot deactivated successfully")
+        
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
+@router.put("/admin/slots/{slot_id}/reactivate", response_model=SuccessResponse)
+async def reactivate_slot(
+    slot_id: UUID,
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Reactivate an inactive parking slot (admin only)."""
+    try:
+        parking_service = ParkingService(session)
+        await parking_service.reactivate_slot(slot_id)
+        return SuccessResponse(message="Slot reactivated successfully")
+        
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
+@router.delete("/admin/slots/{slot_id}", response_model=SuccessResponse)
+async def delete_slot(
+    slot_id: UUID,
+    current_user: User = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Delete an inactive parking slot (admin only)."""
+    try:
+        parking_service = ParkingService(session)
+        success = await parking_service.delete_inactive_slot(slot_id)
+        
+        if success:
+            return SuccessResponse(message="Slot deleted successfully")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete slot"
+            )
+            
+    except BaseApplicationError as e:
+        raise create_http_exception(e)

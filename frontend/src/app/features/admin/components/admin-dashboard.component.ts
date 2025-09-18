@@ -41,7 +41,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
               <div class="card-body">
                 <div class="d-flex justify-content-between">
                   <div>
-                    <h4 class="mb-0">{{ dashboardData.overview.total_users }}</h4>
+                    <h4 class="mb-0">{{ dashboardData.overview?.total_users || 0 }}</h4>
                     <small>Total Users</small>
                   </div>
                   <i class="fas fa-users fa-2x opacity-75"></i>
@@ -55,7 +55,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
               <div class="card-body">
                 <div class="d-flex justify-content-between">
                   <div>
-                    <h4 class="mb-0">{{ dashboardData.overview.total_parking_lots }}</h4>
+                    <h4 class="mb-0">{{ dashboardData.overview?.total_parking_lots || 0 }}</h4>
                     <small>Parking Lots</small>
                   </div>
                   <i class="fas fa-parking fa-2x opacity-75"></i>
@@ -69,7 +69,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
               <div class="card-body">
                 <div class="d-flex justify-content-between">
                   <div>
-                    <h4 class="mb-0">{{ dashboardData.overview.today_bookings }}</h4>
+                    <h4 class="mb-0">{{ dashboardData.overview?.today_bookings || 0 }}</h4>
                     <small>Today's Bookings</small>
                   </div>
                   <i class="fas fa-calendar-alt fa-2x opacity-75"></i>
@@ -83,7 +83,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
               <div class="card-body">
                 <div class="d-flex justify-content-between">
                   <div>
-                    <h4 class="mb-0">₹{{ dashboardData.overview.today_revenue | number:'1.2-2' }}</h4>
+                    <h4 class="mb-0">₹{{ dashboardData.overview?.today_revenue || 0 | number:'1.2-2' }}</h4>
                     <small>Today's Revenue</small>
                   </div>
                   <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
@@ -109,31 +109,31 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
                   <div class="col-6 mb-2">
                     <div class="d-flex justify-content-between">
                       <span>Confirmed:</span>
-                      <span class="badge bg-success">{{ dashboardData.today_statistics.status_breakdown.confirmed }}</span>
+                      <span class="badge bg-success">{{ dashboardData.today_statistics.status_breakdown?.confirmed || 0 }}</span>
                     </div>
                   </div>
                   <div class="col-6 mb-2">
                     <div class="d-flex justify-content-between">
                       <span>Active:</span>
-                      <span class="badge bg-primary">{{ dashboardData.today_statistics.status_breakdown.active }}</span>
+                      <span class="badge bg-primary">{{ dashboardData.today_statistics.status_breakdown?.active || 0 }}</span>
                     </div>
                   </div>
                   <div class="col-6 mb-2">
                     <div class="d-flex justify-content-between">
                       <span>Completed:</span>
-                      <span class="badge bg-info">{{ dashboardData.today_statistics.status_breakdown.completed }}</span>
+                      <span class="badge bg-info">{{ dashboardData.today_statistics.status_breakdown?.completed || 0 }}</span>
                     </div>
                   </div>
                   <div class="col-6 mb-2">
                     <div class="d-flex justify-content-between">
                       <span>Pending:</span>
-                      <span class="badge bg-warning">{{ dashboardData.today_statistics.status_breakdown.pending }}</span>
+                      <span class="badge bg-warning">{{ dashboardData.today_statistics.status_breakdown?.pending || 0 }}</span>
                     </div>
                   </div>
                   <div class="col-6 mb-2">
                     <div class="d-flex justify-content-between">
                       <span>Cancelled:</span>
-                      <span class="badge bg-danger">{{ dashboardData.today_statistics.status_breakdown.cancelled }}</span>
+                      <span class="badge bg-danger">{{ dashboardData.today_statistics.status_breakdown?.cancelled || 0 }}</span>
                     </div>
                   </div>
                 </div>
@@ -154,18 +154,18 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
                 <div class="row text-center">
                   <div class="col-6">
                     <i class="fas fa-car fa-2x text-primary mb-2"></i>
-                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.car.count }}</h4>
+                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown?.car?.count || 0 }}</h4>
                     <small class="text-muted">Cars</small>
                     <div class="text-success mt-1">
-                      ₹{{ dashboardData.today_statistics.vehicle_type_breakdown.car.revenue | number:'1.2-2' }}
+                      ₹{{ dashboardData.today_statistics.vehicle_type_breakdown?.car?.revenue || 0 | number:'1.2-2' }}
                     </div>
                   </div>
                   <div class="col-6">
                     <i class="fas fa-motorcycle fa-2x text-success mb-2"></i>
-                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.bike.count }}</h4>
+                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown?.bike?.count || 0 }}</h4>
                     <small class="text-muted">Bikes</small>
                     <div class="text-success mt-1">
-                      ₹{{ dashboardData.today_statistics.vehicle_type_breakdown.bike.revenue | number:'1.2-2' }}
+                      ₹{{ dashboardData.today_statistics.vehicle_type_breakdown?.bike?.revenue || 0 | number:'1.2-2' }}
                     </div>
                   </div>
                 </div>
@@ -187,15 +187,15 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
               <div class="card-body">
                 <div class="row text-center">
                   <div class="col-md-3">
-                    <h4 class="text-primary">{{ dashboardData.today_statistics.total_bookings }}</h4>
+                    <h4 class="text-primary">{{ dashboardData.today_statistics?.total_bookings || 0 }}</h4>
                     <small class="text-muted">Total Bookings</small>
                   </div>
                   <div class="col-md-3">
-                    <h4 class="text-success">₹{{ dashboardData.today_statistics.total_revenue | number:'1.2-2' }}</h4>
+                    <h4 class="text-success">₹{{ dashboardData.today_statistics?.total_revenue || 0 | number:'1.2-2' }}</h4>
                     <small class="text-muted">Total Revenue</small>
                   </div>
                   <div class="col-md-3">
-                    <h4 class="text-info">₹{{ dashboardData.today_statistics.average_booking_value | number:'1.2-2' }}</h4>
+                    <h4 class="text-info">₹{{ dashboardData.today_statistics?.average_booking_value || 0 | number:'1.2-2' }}</h4>
                     <small class="text-muted">Average Booking</small>
                   </div>
                   <div class="col-md-3">
@@ -238,6 +238,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (data) => {
           console.log('✅ Dashboard data received:', data);
+          console.log('🔍 Vehicle type breakdown:', data?.today_statistics?.vehicle_type_breakdown);
           this.dashboardData = data;
           this.loading = false;
         },
@@ -252,8 +253,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   getOccupancyRate(): number {
     if (!this.dashboardData) return 0;
     
-    const activeBookings = this.dashboardData.today_statistics.status_breakdown.active;
-    const totalLots = this.dashboardData.overview.total_parking_lots;
+    const activeBookings = this.dashboardData.today_statistics?.status_breakdown?.active || 0;
+    const totalLots = this.dashboardData.overview?.total_parking_lots || 0;
     
     // Rough calculation: assume each lot has ~100 slots
     const estimatedSlots = totalLots * 100;

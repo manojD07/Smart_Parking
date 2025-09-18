@@ -89,7 +89,8 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
             [availableCount]="slotStats.available"
             [occupiedCount]="slotStats.occupied"
             [reservedCount]="slotStats.reserved"
-            [inactiveCount]="slotStats.inactive">
+            [inactiveCount]="slotStats.inactive"
+            [maintenanceCount]="slotStats.maintenance">
           </app-slot-status-legend>
         </div>
       </div>
@@ -304,12 +305,12 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
       border-color: #6c757d;
       background-color: #f6f6f6;
       opacity: 0.6;
-      cursor: not-allowed;
     }
 
-    .slot-inactive:hover {
-      transform: none;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    .slot-maintenance {
+      border-color: #fd7e14;
+      background-color: #fff4e6;
+      opacity: 0.8;
     }
 
     .empty-state {
@@ -386,7 +387,7 @@ export class SlotGridComponent implements OnInit, OnChanges {
   slots: ParkingSlot[] = [];
   filteredSlots: ParkingSlot[] = [];
   groupedSlots: { carSlots: ParkingSlot[], bikeSlots: ParkingSlot[] } = { carSlots: [], bikeSlots: [] };
-  slotStats = { total: 0, available: 0, occupied: 0, reserved: 0, inactive: 0, occupancyRate: 0 };
+  slotStats = { total: 0, available: 0, occupied: 0, reserved: 0, inactive: 0, maintenance: 0, occupancyRate: 0 };
 
   // UI State
   loading = false;
@@ -430,7 +431,7 @@ export class SlotGridComponent implements OnInit, OnChanges {
       this.loading = true;
       const filters = {}; // Service now handles pagination automatically
 
-      this.slots = await this.slotService.getLotSlots(this.lotId, filters);
+      this.slots = await this.slotService.getAllSlotsForAdmin(this.lotId, filters);
       this.lastUpdated = new Date();
       this.applyFilters();
       this.slotsUpdated.emit(this.slots);
@@ -491,7 +492,7 @@ export class SlotGridComponent implements OnInit, OnChanges {
   }
 
   onSlotClick(slot: ParkingSlot): void {
-    if (slot.status === 'INACTIVE') return;
+    // Allow clicking on inactive slots for admin management
     this.slotSelected.emit(slot);
   }
 

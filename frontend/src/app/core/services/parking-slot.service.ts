@@ -41,6 +41,57 @@ export class ParkingSlotService extends BaseApiService {
   }
 
   /**
+   * Get all slots for a parking lot including inactive ones (admin view)
+   */
+  async getAllSlotsForAdmin(lotId: string, filters?: SlotFilters): Promise<ParkingSlot[]> {
+    try {
+      const allSlots: ParkingSlot[] = [];
+      const statuses = ['available', 'occupied', 'reserved', 'inactive', 'maintenance'];
+      
+      // If specific status filter is provided, only fetch that status
+      const statusesToFetch = filters?.status ? [filters.status] : statuses;
+      
+      for (const status of statusesToFetch) {
+        try {
+          let skip = 0;
+          const batchSize = 200;
+          let hasMore = true;
+
+          while (hasMore) {
+            const params: any = {
+              skip,
+              limit: batchSize,
+              status
+            };
+            
+            if (filters?.vehicle_type) {
+              params.vehicle_type = filters.vehicle_type;
+            }
+
+            const batch = await this.get<ParkingSlot[]>(`/parking/lots/${lotId}/slots`, params).toPromise();
+            
+            if (batch && batch.length > 0) {
+              allSlots.push(...batch);
+              skip += batchSize;
+              hasMore = batch.length === batchSize;
+            } else {
+              hasMore = false;
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch ${status} slots:`, error);
+        }
+      }
+
+      console.log(`📊 Loaded ${allSlots.length} slots (including inactive) for lot ${lotId}`);
+      return allSlots;
+    } catch (error) {
+      console.error('Error fetching admin lot slots:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all slots for a parking lot (handles pagination automatically)
    */
   async getLotSlots(lotId: string, filters?: SlotFilters): Promise<ParkingSlot[]> {
@@ -127,14 +178,11 @@ export class ParkingSlotService extends BaseApiService {
 
   /**
    * Deactivate a parking slot (Admin only)
-   * Note: Since backend doesn't have specific slot activate/deactivate endpoints,
-   * this is a placeholder that will show an appropriate message
    */
   async deactivateSlot(slotId: string): Promise<boolean> {
     try {
-      // For now, we'll simulate the operation since the backend endpoint doesn't exist
-      console.warn('⚠️ Slot deactivation endpoint not available in backend');
-      throw new Error('Slot deactivation functionality requires backend implementation');
+      const response = await this.put<{message: string}>(`/parking/admin/slots/${slotId}/deactivate`, {}).toPromise();
+      return !!response;
     } catch (error) {
       console.error('Error deactivating slot:', error);
       throw error;
@@ -142,17 +190,27 @@ export class ParkingSlotService extends BaseApiService {
   }
 
   /**
-   * Activate a parking slot (Admin only)
-   * Note: Since backend doesn't have specific slot activate/deactivate endpoints,
-   * this is a placeholder that will show an appropriate message
+   * Reactivate an inactive parking slot (Admin only)
    */
-  async activateSlot(slotId: string): Promise<boolean> {
+  async reactivateSlot(slotId: string): Promise<boolean> {
     try {
-      // For now, we'll simulate the operation since the backend endpoint doesn't exist
-      console.warn('⚠️ Slot activation endpoint not available in backend');
-      throw new Error('Slot activation functionality requires backend implementation');
+      const response = await this.put<{message: string}>(`/parking/admin/slots/${slotId}/reactivate`, {}).toPromise();
+      return !!response;
     } catch (error) {
-      console.error('Error activating slot:', error);
+      console.error('Error reactivating slot:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete an inactive parking slot (Admin only)
+   */
+  async deleteSlot(slotId: string): Promise<boolean> {
+    try {
+      const response = await this.delete<{message: string}>(`/parking/admin/slots/${slotId}`).toPromise();
+      return !!response;
+    } catch (error) {
+      console.error('Error deleting slot:', error);
       throw error;
     }
   }
@@ -191,8 +249,12 @@ export class ParkingSlotService extends BaseApiService {
    * Get slot status color class
    */
   getSlotStatusClass(slot: ParkingSlot): string {
-    if (!slot.status || slot.status === 'INACTIVE') {
+    if (slot.status === 'inactive' || slot.status === 'INACTIVE') {
       return 'slot-inactive';
+    }
+    
+    if (slot.status === 'maintenance' || slot.status === 'MAINTENANCE') {
+      return 'slot-maintenance';
     }
     
     if (slot.is_occupied) {
@@ -210,8 +272,12 @@ export class ParkingSlotService extends BaseApiService {
    * Get slot status text
    */
   getSlotStatusText(slot: ParkingSlot): string {
-    if (!slot.status || slot.status === 'INACTIVE') {
+    if (slot.status === 'inactive' || slot.status === 'INACTIVE') {
       return 'Inactive';
+    }
+    
+    if (slot.status === 'maintenance' || slot.status === 'MAINTENANCE') {
+      return 'Maintenance';
     }
     
     if (slot.is_occupied) {
@@ -241,13 +307,20 @@ export class ParkingSlotService extends BaseApiService {
     occupied: number;
     reserved: number;
     inactive: number;
+    maintenance: number;
     occupancyRate: number;
   } {
     const total = slots.length;
-    const available = slots.filter(s => !s.is_occupied && !s.is_reserved && s.status !== 'INACTIVE').length;
+    const available = slots.filter(s => 
+      s.status === 'available' || s.status === 'AVAILABLE' || 
+      (s.status !== 'inactive' && s.status !== 'INACTIVE' && 
+       s.status !== 'maintenance' && s.status !== 'MAINTENANCE' && 
+       !s.is_occupied && !s.is_reserved)
+    ).length;
     const occupied = slots.filter(s => s.is_occupied).length;
     const reserved = slots.filter(s => s.is_reserved).length;
-    const inactive = slots.filter(s => s.status === 'INACTIVE').length;
+    const inactive = slots.filter(s => s.status === 'inactive' || s.status === 'INACTIVE').length;
+    const maintenance = slots.filter(s => s.status === 'maintenance' || s.status === 'MAINTENANCE').length;
     const occupancyRate = total > 0 ? Math.round((occupied / total) * 100) : 0;
 
     return {
@@ -256,6 +329,7 @@ export class ParkingSlotService extends BaseApiService {
       occupied,
       reserved,
       inactive,
+      maintenance,
       occupancyRate
     };
   }

@@ -30,6 +30,7 @@ class SlotStatus(str, Enum):
     OCCUPIED = "occupied"
     RESERVED = "reserved"
     MAINTENANCE = "maintenance"
+    INACTIVE = "inactive"
 
 
 class ParkingLot(BaseModel):
