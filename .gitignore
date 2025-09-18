@@ -1,0 +1,76 @@
+# Smart Parking Management System - Root .gitignore
+
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux system files
+*~
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Build artifacts
+build/
+dist/
+*.tgz
+*.tar.gz
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Dependency directories (if not using Docker)
+node_modules/
+venv/
+env/
+
+# IDE-specific files
+.project
+.classpath
+.settings/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Documentation build
+docs/_build/
+
+# Package files
+*.dmg
+*.pkg
+*.deb
+*.rpm
