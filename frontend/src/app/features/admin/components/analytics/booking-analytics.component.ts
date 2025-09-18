@@ -10,11 +10,12 @@ import { ToastService } from '../../../../core/services/toast.service';
 // Components
 import { LoadingStateComponent } from '../shared/loading-state.component';
 import { ChartPlaceholderComponent } from './shared/chart-placeholder.component';
+import { PieChartComponent, PieChartData } from './shared/pie-chart.component';
 
 @Component({
   selector: 'app-booking-analytics',
   standalone: true,
-  imports: [CommonModule, FormsModule, LoadingStateComponent, ChartPlaceholderComponent],
+  imports: [CommonModule, FormsModule, LoadingStateComponent, ChartPlaceholderComponent, PieChartComponent],
   template: `
     <div class="container-fluid">
       <!-- Header with Filters -->
@@ -140,7 +141,7 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
               </div>
               <div class="mt-1">
                 <small class="opacity-75">
-                  {{ (bookingData.status_breakdown.completed || 0).toLocaleString() }} completed bookings
+                  {{ (bookingData.status_breakdown['completed'] || 0).toLocaleString() }} completed bookings
                 </small>
               </div>
             </div>
@@ -159,7 +160,7 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
               </div>
               <div class="mt-1">
                 <small class="opacity-75">
-                  {{ (bookingData.status_breakdown.cancelled || 0).toLocaleString() }} cancelled bookings
+                  {{ (bookingData.status_breakdown['cancelled'] || 0).toLocaleString() }} cancelled bookings
                 </small>
               </div>
             </div>
@@ -220,31 +221,15 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
               </h5>
             </div>
             <div class="card-body">
-              <div class="status-breakdown">
-                <div *ngFor="let status of getStatusEntries()" class="d-flex justify-content-between align-items-center mb-3">
-                  <div class="d-flex align-items-center">
-                    <i class="fas me-2" [class]="getStatusIcon(status.key)" [style.color]="getStatusColor(status.key)"></i>
-                    <div>
-                      <div class="fw-semibold text-capitalize">{{ status.key }}</div>
-                      <small class="text-muted">{{ getStatusPercentage(status.value) }}%</small>
-                    </div>
-                  </div>
-                  <div class="text-end">
-                    <div class="fw-bold">{{ status.value.toLocaleString() }}</div>
-                  </div>
-                </div>
-                
-                <!-- Status Progress Bars -->
-                <div *ngFor="let status of getStatusEntries()" class="mb-2">
-                  <div class="progress" style="height: 6px;">
-                    <div 
-                      class="progress-bar" 
-                      [style.background-color]="getStatusColor(status.key)"
-                      [style.width.%]="getStatusPercentage(status.value)">
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <app-pie-chart
+                [data]="getStatusPieData()"
+                [size]="160"
+                [donut]="true"
+                [showLegend]="false"
+                [showLabelsAroundCircle]="true"
+                [minPercentageForLabel]="2"
+                [centerText]="getStatusCenterText()">
+              </app-pie-chart>
             </div>
           </div>
         </div>
@@ -327,31 +312,15 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
               </h5>
             </div>
             <div class="card-body">
-              <div class="vehicle-breakdown">
-                <div *ngFor="let vehicle of getVehicleEntries()" class="d-flex justify-content-between align-items-center mb-3">
-                  <div class="d-flex align-items-center">
-                    <i class="fas fa-lg me-2" [class]="getVehicleIcon(vehicle.key)" [style.color]="getVehicleColor(vehicle.key)"></i>
-                    <div>
-                      <div class="fw-semibold text-capitalize">{{ vehicle.key }}</div>
-                      <small class="text-muted">{{ getVehiclePercentage(vehicle.value) }}% of bookings</small>
-                    </div>
-                  </div>
-                  <div class="text-end">
-                    <div class="fw-bold">{{ vehicle.value.toLocaleString() }}</div>
-                  </div>
-                </div>
-                
-                <!-- Vehicle Progress Bars -->
-                <div *ngFor="let vehicle of getVehicleEntries()" class="mb-2">
-                  <div class="progress" style="height: 8px;">
-                    <div 
-                      class="progress-bar" 
-                      [style.background-color]="getVehicleColor(vehicle.key)"
-                      [style.width.%]="getVehiclePercentage(vehicle.value)">
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <app-pie-chart
+                [data]="getVehiclePieData()"
+                [size]="160"
+                [donut]="true"
+                [showLegend]="false"
+                [showLabelsAroundCircle]="true"
+                [minPercentageForLabel]="1"
+                [centerText]="getVehicleCenterText()">
+              </app-pie-chart>
             </div>
           </div>
         </div>
@@ -408,10 +377,6 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
       width: 100%;
     }
 
-    .status-breakdown,
-    .vehicle-breakdown {
-      padding: 0.5rem 0;
-    }
 
     .patterns-grid {
       display: flex;
@@ -627,5 +592,56 @@ export class BookingAnalyticsComponent implements OnInit {
   getVehiclePercentage(value: number): number {
     if (!this.bookingData || this.bookingData.total_bookings === 0) return 0;
     return (value / this.bookingData.total_bookings) * 100;
+  }
+
+  // Pie Chart Data Methods
+  getStatusPieData(): PieChartData[] {
+    if (!this.bookingData) return [];
+    
+    return Object.entries(this.bookingData.status_breakdown)
+      .filter(([, value]) => value > 0)
+      .map(([key, value]) => ({
+        label: key.charAt(0).toUpperCase() + key.slice(1),
+        value,
+        color: this.getStatusColor(key),
+        icon: this.getStatusIcon(key)
+      }))
+      .sort((a, b) => b.value - a.value);
+  }
+
+  getVehiclePieData(): PieChartData[] {
+    if (!this.bookingData) return [];
+    
+    return Object.entries(this.bookingData.vehicle_breakdown)
+      .filter(([, value]) => value > 0)
+      .map(([key, value]) => ({
+        label: key.charAt(0).toUpperCase() + key.slice(1),
+        value,
+        color: this.getVehicleColor(key),
+        icon: this.getVehicleIcon(key)
+      }))
+      .sort((a, b) => b.value - a.value);
+  }
+
+  getStatusCenterText(): { main: string; sub: string } {
+    if (!this.bookingData) return { main: '0', sub: 'Bookings' };
+    
+    return {
+      main: this.bookingData.total_bookings.toLocaleString(),
+      sub: 'Total Bookings'
+    };
+  }
+
+  getVehicleCenterText(): { main: string; sub: string } {
+    if (!this.bookingData) return { main: '0', sub: 'Bookings' };
+    
+    const mostPopular = this.bookingData.patterns.most_popular_vehicle;
+    const mostPopularCount = this.bookingData.vehicle_breakdown[mostPopular] || 0;
+    const percentage = this.getVehiclePercentage(mostPopularCount);
+    
+    return {
+      main: `${percentage.toFixed(0)}%`,
+      sub: mostPopular.charAt(0).toUpperCase() + mostPopular.slice(1)
+    };
   }
 }
