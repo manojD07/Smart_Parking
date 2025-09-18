@@ -63,10 +63,10 @@ import { ToastService } from '../../../../../core/services/toast.service';
               </div>
 
               <!-- Warnings -->
-              <div class="warnings" *ngIf="validation?.warnings && validation.warnings.length > 0">
+              <div class="warnings" *ngIf="hasWarnings()">
                 <small class="text-muted d-block mb-2">Important Notes:</small>
                 <ul class="list-unstyled">
-                  <li *ngFor="let warning of validation.warnings" class="text-warning mb-1">
+                  <li *ngFor="let warning of validation?.warnings || []" class="text-warning mb-1">
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     <small>{{ warning }}</small>
                   </li>
@@ -336,5 +336,9 @@ export class AdminToggleComponent implements OnInit {
 
   getConfirmButtonText(): string {
     return this.user.is_admin ? 'Remove Admin' : 'Make Admin';
+  }
+
+  hasWarnings(): boolean {
+    return !!(this.validation?.warnings && this.validation.warnings.length > 0);
   }
 }

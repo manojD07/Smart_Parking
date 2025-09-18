@@ -246,7 +246,7 @@ import { AdminBadgeComponent } from './users/shared/admin-badge.component';
 export class AdminUsersComponent implements OnInit {
   // Data
   users: User[] = [];
-  currentUser: User | null = null;
+  currentUser: User | undefined = undefined;
   userStats = {
     total: 0,
     active: 0,
