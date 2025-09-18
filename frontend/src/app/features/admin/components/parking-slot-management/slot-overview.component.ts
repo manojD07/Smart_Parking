@@ -213,6 +213,13 @@ import { ConfirmationModalComponent } from '../shared/confirmation-modal.compone
                 </div>
               </div>
             </div>
+            
+            <!-- Warning for occupied/reserved/maintenance slots -->
+            <div *ngIf="selectedSlot.is_occupied || selectedSlot.is_reserved || selectedSlot.status === 'maintenance' || selectedSlot.status === 'MAINTENANCE'" class="alert alert-warning mt-3">
+              <i class="fas fa-exclamation-triangle me-2"></i>
+              <strong>Note:</strong> This slot cannot be deactivated because it is currently 
+              {{ selectedSlot.is_occupied ? 'occupied' : selectedSlot.is_reserved ? 'reserved' : 'under maintenance' }}.
+            </div>
           </div>
           
           <div class="modal-footer">
@@ -224,7 +231,8 @@ import { ConfirmationModalComponent } from '../shared/confirmation-modal.compone
               class="btn btn-sm me-2"
               [class]="(selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive') ? 'btn-success' : 'btn-warning'"
               (click)="toggleSlotStatus()"
-              [disabled]="!selectedSlot || selectedSlot.is_occupied || selectedSlot.is_reserved || togglingSlotStatus">
+              [disabled]="!selectedSlot || selectedSlot.is_occupied || selectedSlot.is_reserved || togglingSlotStatus || !canToggleSlotStatus()"
+              [title]="getToggleButtonTooltip()">
               <span *ngIf="togglingSlotStatus" class="spinner-border spinner-border-sm me-2" role="status"></span>
               <i *ngIf="!togglingSlotStatus" class="fas" [class]="(selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive') ? 'fa-check' : 'fa-ban'"></i>
               {{ (selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive') ? 'Reactivate' : 'Deactivate' }}
@@ -698,6 +706,46 @@ export class SlotOverviewComponent implements OnInit {
     } finally {
       this.deletingMultipleSlots = false;
     }
+  }
+
+  // Helper methods for button states
+  canToggleSlotStatus(): boolean {
+    if (!this.selectedSlot) return false;
+    
+    // Can reactivate inactive slots
+    if (this.selectedSlot.status === 'INACTIVE' || this.selectedSlot.status === 'inactive') {
+      return true;
+    }
+    
+    // Cannot toggle maintenance slots
+    if (this.selectedSlot.status === 'MAINTENANCE' || this.selectedSlot.status === 'maintenance') {
+      return false;
+    }
+    
+    // Can deactivate available slots (not occupied or reserved)
+    return !this.selectedSlot.is_occupied && !this.selectedSlot.is_reserved;
+  }
+
+  getToggleButtonTooltip(): string {
+    if (!this.selectedSlot) return '';
+    
+    if (this.selectedSlot.is_occupied) {
+      return 'Cannot deactivate occupied slot';
+    }
+    
+    if (this.selectedSlot.is_reserved) {
+      return 'Cannot deactivate reserved slot';
+    }
+    
+    if (this.selectedSlot.status === 'MAINTENANCE' || this.selectedSlot.status === 'maintenance') {
+      return 'Cannot deactivate maintenance slot';
+    }
+    
+    if (this.selectedSlot.status === 'INACTIVE' || this.selectedSlot.status === 'inactive') {
+      return 'Click to reactivate this slot';
+    }
+    
+    return 'Click to deactivate this slot';
   }
 
   formatDate(dateString: string): string {
