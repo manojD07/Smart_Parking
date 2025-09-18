@@ -7,6 +7,11 @@ from app.schemas.parking import (
     AvailabilityRequest, AvailabilityResponse,
     LocationSearchRequest, PricingRuleCreate
 )
+from app.schemas.pricing import (
+    PricingRuleResponse, PricingRuleUpdate, PricingRuleListResponse,
+    PricingSummaryResponse, PricingValidationResponse, PricingPreviewMultiResponse,
+    BulkRuleUpdateRequest, RuleDuplicationRequest, DefaultRulesResponse
+)
 from app.schemas.booking import BookingCreate, BookingUpdate, BookingResponse
 from app.schemas.auth import UserRegistration, TokenResponse, RefreshTokenRequest, ChangePasswordRequest
 from app.schemas.common import PaginatedResponse, ErrorResponse, SuccessResponse
@@ -32,6 +37,15 @@ __all__ = [
     "AvailabilityResponse",
     "LocationSearchRequest",
     "PricingRuleCreate",
+    "PricingRuleResponse",
+    "PricingRuleUpdate",
+    "PricingRuleListResponse",
+    "PricingSummaryResponse",
+    "PricingValidationResponse",
+    "PricingPreviewMultiResponse",
+    "BulkRuleUpdateRequest",
+    "RuleDuplicationRequest",
+    "DefaultRulesResponse",
     "BookingCreate",
     "BookingUpdate",
     "BookingResponse", 
