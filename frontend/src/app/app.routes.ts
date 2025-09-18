@@ -107,6 +107,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/components/admin-analytics.component').then(m => m.AdminAnalyticsComponent)
       },
       {
+        path: 'pricing',
+        loadComponent: () => import('./features/admin/components/pricing/admin-pricing.component').then(m => m.AdminPricingComponent)
+      },
+      {
         path: 'checkin',
         loadComponent: () => import('./features/admin/components/admin-checkin.component').then(m => m.AdminCheckinComponent)
       },

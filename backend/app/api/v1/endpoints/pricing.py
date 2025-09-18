@@ -10,7 +10,6 @@ from app.core.database import get_async_session
 from app.services.pricing import PricingService
 from app.schemas.pricing import (
     PricingRuleResponse,
-    PricingRuleCreate,
     PricingRuleUpdate,
     PricingRuleListResponse,
     PricingSummaryResponse,
@@ -20,6 +19,7 @@ from app.schemas.pricing import (
     RuleDuplicationRequest,
     DefaultRulesResponse
 )
+from app.schemas.parking import PricingRuleCreate
 from app.schemas.common import SuccessResponse
 from app.api.deps import get_current_admin_user
 from app.models.user import User

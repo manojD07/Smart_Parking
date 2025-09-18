@@ -69,9 +69,9 @@ import { User } from '../../core/models/user.model';
               </a>
             </li>
             <li class="nav-item" *ngIf="isAuthenticated && currentUser?.is_admin">
-              <a class="nav-link" routerLink="/admin/pricing-rules" routerLinkActive="active" (click)="collapseNavbar()">
+              <a class="nav-link" routerLink="/admin/pricing" routerLinkActive="active" (click)="collapseNavbar()">
                 <i class="fas fa-tags me-1"></i>
-                Pricing Rules
+                Pricing
               </a>
             </li>
 
