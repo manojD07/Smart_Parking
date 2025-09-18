@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 
 // Components
 import { RevenueAnalyticsComponent } from './analytics/revenue-analytics.component';
+import { BookingAnalyticsComponent } from './analytics/booking-analytics.component';
 
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [CommonModule, RevenueAnalyticsComponent],
+  imports: [CommonModule, RevenueAnalyticsComponent, BookingAnalyticsComponent],
   template: `
     <div class="container-fluid mt-4">
       <!-- Header -->
@@ -86,11 +87,7 @@ import { RevenueAnalyticsComponent } from './analytics/revenue-analytics.compone
 
         <!-- Booking Analytics Tab -->
         <div class="tab-pane fade" id="bookings" role="tabpanel">
-          <div class="text-center py-5">
-            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
-            <h5>Booking Analytics</h5>
-            <p class="text-muted">Coming in Phase 2</p>
-          </div>
+          <app-booking-analytics></app-booking-analytics>
         </div>
 
         <!-- Overview Tab -->

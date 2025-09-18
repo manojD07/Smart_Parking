@@ -220,6 +220,82 @@ export class AnalyticsService extends BaseApiService {
   }
 
   /**
+   * Get comprehensive booking analytics
+   */
+  async getBookingAnalytics(startDate: string, endDate: string, lotId?: string): Promise<BookingAnalytics> {
+    try {
+      // Get detailed booking data for the date range
+      const params: any = {
+        start_date: startDate,
+        end_date: endDate,
+        limit: 1000
+      };
+      
+      if (lotId) {
+        params.lot_id = lotId;
+      }
+      
+      const bookingsData = await this.get<any[]>('/admin/bookings', params).toPromise();
+      
+      // Process booking analytics from the data
+      const analytics = this.processBookingAnalytics(bookingsData || [], startDate, endDate);
+      
+      return analytics;
+    } catch (error) {
+      console.error('Error fetching booking analytics:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get booking trends over time
+   */
+  async getBookingTrends(startDate: string, endDate: string, lotId?: string): Promise<BookingTrend[]> {
+    try {
+      const params: any = {
+        start_date: startDate,
+        end_date: endDate,
+        limit: 1000
+      };
+      
+      if (lotId) {
+        params.lot_id = lotId;
+      }
+      
+      const bookingsData = await this.get<any[]>('/admin/bookings', params).toPromise();
+      
+      return this.processBookingTrends(bookingsData || []);
+    } catch (error) {
+      console.error('Error fetching booking trends:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get booking patterns analysis
+   */
+  async getBookingPatterns(startDate: string, endDate: string, lotId?: string): Promise<BookingPatterns> {
+    try {
+      const params: any = {
+        start_date: startDate,
+        end_date: endDate,
+        limit: 1000
+      };
+      
+      if (lotId) {
+        params.lot_id = lotId;
+      }
+      
+      const bookingsData = await this.get<any[]>('/admin/bookings', params).toPromise();
+      
+      return this.processBookingPatterns(bookingsData || []);
+    } catch (error) {
+      console.error('Error fetching booking patterns:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get system overview data
    */
   async getSystemOverview(): Promise<SystemOverview> {
@@ -245,6 +321,196 @@ export class AnalyticsService extends BaseApiService {
       console.error('Error fetching system overview:', error);
       throw error;
     }
+  }
+
+  /**
+   * Process raw booking data into booking analytics
+   */
+  private processBookingAnalytics(bookingsData: any[], startDate: string, endDate: string): BookingAnalytics {
+    const totalBookings = bookingsData.length;
+    
+    // Status breakdown
+    const statusBreakdown = bookingsData.reduce((acc, booking) => {
+      const status = booking.status || 'unknown';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Vehicle breakdown
+    const vehicleBreakdown = bookingsData.reduce((acc, booking) => {
+      const vehicleType = booking.vehicle_type || 'unknown';
+      acc[vehicleType] = (acc[vehicleType] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Calculate rates
+    const completedBookings = statusBreakdown.completed || 0;
+    const cancelledBookings = statusBreakdown.cancelled || 0;
+    const successRate = totalBookings > 0 ? (completedBookings / totalBookings) * 100 : 0;
+    const cancellationRate = totalBookings > 0 ? (cancelledBookings / totalBookings) * 100 : 0;
+    
+    // Calculate average duration (in hours)
+    const validDurations = bookingsData
+      .filter(booking => booking.start_time && booking.end_time)
+      .map(booking => {
+        const start = new Date(booking.start_time);
+        const end = new Date(booking.end_time);
+        return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // Convert to hours
+      });
+    
+    const averageDuration = validDurations.length > 0 
+      ? validDurations.reduce((sum, duration) => sum + duration, 0) / validDurations.length 
+      : 0;
+    
+    // Process trends and patterns
+    const trends = this.processBookingTrends(bookingsData);
+    const patterns = this.processBookingPatterns(bookingsData);
+    
+    return {
+      total_bookings: totalBookings,
+      booking_growth: 0, // Would need historical comparison
+      success_rate: successRate,
+      cancellation_rate: cancellationRate,
+      average_duration: averageDuration,
+      trends,
+      patterns,
+      status_breakdown: statusBreakdown,
+      vehicle_breakdown: vehicleBreakdown
+    };
+  }
+
+  /**
+   * Process booking trends over time
+   */
+  private processBookingTrends(bookingsData: any[]): BookingTrend[] {
+    // Group bookings by date
+    const dailyBookings = new Map<string, {
+      total_bookings: number;
+      confirmed: number;
+      active: number;
+      completed: number;
+      cancelled: number;
+    }>();
+    
+    bookingsData.forEach(booking => {
+      const date = booking.created_at?.split('T')[0] || '';
+      const existing = dailyBookings.get(date) || {
+        total_bookings: 0,
+        confirmed: 0,
+        active: 0,
+        completed: 0,
+        cancelled: 0
+      };
+      
+      existing.total_bookings++;
+      
+      // Count by status
+      const status = booking.status || 'unknown';
+      if (status === 'confirmed') existing.confirmed++;
+      else if (status === 'active') existing.active++;
+      else if (status === 'completed') existing.completed++;
+      else if (status === 'cancelled') existing.cancelled++;
+      
+      dailyBookings.set(date, existing);
+    });
+    
+    // Convert to array and sort by date
+    return Array.from(dailyBookings.entries())
+      .map(([date, data]) => ({
+        date,
+        total_bookings: data.total_bookings,
+        confirmed: data.confirmed,
+        active: data.active,
+        completed: data.completed,
+        cancelled: data.cancelled
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  /**
+   * Process booking patterns analysis
+   */
+  private processBookingPatterns(bookingsData: any[]): BookingPatterns {
+    // Peak hours analysis
+    const hourlyBookings = new Map<number, number>();
+    
+    // Peak days analysis
+    const dailyBookings = new Map<string, number>();
+    
+    // Vehicle type analysis
+    let carCount = 0;
+    let bikeCount = 0;
+    
+    // Duration analysis
+    const durations: number[] = [];
+    
+    // Lot popularity analysis
+    const lotBookings = new Map<string, number>();
+    
+    bookingsData.forEach(booking => {
+      // Hour analysis
+      if (booking.created_at) {
+        const hour = new Date(booking.created_at).getHours();
+        hourlyBookings.set(hour, (hourlyBookings.get(hour) || 0) + 1);
+      }
+      
+      // Day analysis
+      if (booking.created_at) {
+        const dayName = new Date(booking.created_at).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        dailyBookings.set(dayName, (dailyBookings.get(dayName) || 0) + 1);
+      }
+      
+      // Vehicle type analysis
+      if (booking.vehicle_type === 'car') carCount++;
+      else if (booking.vehicle_type === 'bike') bikeCount++;
+      
+      // Duration analysis
+      if (booking.start_time && booking.end_time) {
+        const start = new Date(booking.start_time);
+        const end = new Date(booking.end_time);
+        const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60); // Hours
+        durations.push(duration);
+      }
+      
+      // Lot popularity
+      if (booking.lot_id) {
+        lotBookings.set(booking.lot_id, (lotBookings.get(booking.lot_id) || 0) + 1);
+      }
+    });
+    
+    // Find peak hours (top 3)
+    const peakHours = Array.from(hourlyBookings.entries())
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3)
+      .map(([hour]) => hour);
+    
+    // Find peak days (top 3)
+    const peakDays = Array.from(dailyBookings.entries())
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3)
+      .map(([day]) => day);
+    
+    // Calculate average duration
+    const averageDuration = durations.length > 0 
+      ? durations.reduce((sum, duration) => sum + duration, 0) / durations.length 
+      : 0;
+    
+    // Most popular vehicle
+    const mostPopularVehicle: 'car' | 'bike' = carCount >= bikeCount ? 'car' : 'bike';
+    
+    // Busiest lots (top 5)
+    const busiestLots = Array.from(lotBookings.entries())
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([lotId]) => lotId);
+    
+    return {
+      peak_hours: peakHours,
+      peak_days: peakDays,
+      average_duration: averageDuration,
+      most_popular_vehicle: mostPopularVehicle,
+      busiest_lots: busiestLots
+    };
   }
 
   /**
