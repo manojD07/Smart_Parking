@@ -37,8 +37,8 @@ async def get_admin_dashboard(
         
         # Get today's bookings
         today = datetime.now(timezone.utc).date()
-        today_start = datetime.combine(today, datetime.min.time())
-        today_end = datetime.combine(today, datetime.max.time())
+        today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
+        today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
         
         today_stats = await booking_service.get_booking_statistics(
             start_date=today_start,
@@ -165,8 +165,8 @@ async def get_revenue_report(
     try:
         booking_service = BookingService(session)
         
-        start_datetime = datetime.combine(start_date, datetime.min.time())
-        end_datetime = datetime.combine(end_date, datetime.max.time())
+        start_datetime = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        end_datetime = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
         
         statistics = await booking_service.get_booking_statistics(
             start_date=start_datetime,

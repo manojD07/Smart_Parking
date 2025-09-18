@@ -13,8 +13,8 @@ class BookingCreate(BaseModel):
     lot_id: UUID = Field(..., description="Parking lot ID")
     vehicle_type: str = Field(..., description="Vehicle type (car/bike)")
     vehicle_number: str = Field(..., min_length=3, max_length=20, description="Vehicle number")
-    start_time: datetime = Field(..., description="Booking start time")
-    end_time: datetime = Field(..., description="Booking end time")
+    start_time: datetime = Field(..., description="Booking start time (UTC)")
+    end_time: datetime = Field(..., description="Booking end time (UTC)")
     
     class Config:
         json_encoders = {
@@ -26,8 +26,8 @@ class BookingUpdate(BaseModel):
     """Booking update schema."""
     
     vehicle_number: Optional[str] = Field(None, min_length=3, max_length=20, description="Vehicle number")
-    start_time: Optional[datetime] = Field(None, description="Booking start time")
-    end_time: Optional[datetime] = Field(None, description="Booking end time")
+    start_time: Optional[datetime] = Field(None, description="Booking start time (UTC)")
+    end_time: Optional[datetime] = Field(None, description="Booking end time (UTC)")
 
 
 class BookingResponse(BaseModel):
@@ -39,15 +39,15 @@ class BookingResponse(BaseModel):
     slot_id: Optional[UUID] = Field(None, description="Parking slot ID")
     vehicle_type: str = Field(..., description="Vehicle type")
     vehicle_number: str = Field(..., description="Vehicle number")
-    start_time: datetime = Field(..., description="Booking start time")
-    end_time: datetime = Field(..., description="Booking end time")
+    start_time: datetime = Field(..., description="Booking start time (UTC)")
+    end_time: datetime = Field(..., description="Booking end time (UTC)")
     total_amount: Decimal = Field(..., description="Total booking amount")
     status: str = Field(..., description="Booking status")
     booking_reference: str = Field(..., description="Booking reference code")
-    check_in_time: Optional[datetime] = Field(None, description="Check-in time")
-    check_out_time: Optional[datetime] = Field(None, description="Check-out time")
-    created_at: datetime = Field(..., description="Booking creation time")
-    updated_at: datetime = Field(..., description="Booking last update time")
+    check_in_time: Optional[datetime] = Field(None, description="Check-in time (UTC)")
+    check_out_time: Optional[datetime] = Field(None, description="Check-out time (UTC)")
+    created_at: datetime = Field(..., description="Booking creation time (UTC)")
+    updated_at: datetime = Field(..., description="Booking last update time (UTC)")
     
     # Related object names (simplified to avoid async loading issues)
     lot_name: Optional[str] = Field(None, description="Parking lot name")
@@ -92,8 +92,8 @@ class PricingPreviewRequest(BaseModel):
     
     lot_id: UUID = Field(..., description="Parking lot ID")
     vehicle_type: str = Field(..., description="Vehicle type (car/bike)")
-    start_time: datetime = Field(..., description="Booking start time")
-    end_time: datetime = Field(..., description="Booking end time")
+    start_time: datetime = Field(..., description="Booking start time (UTC)")
+    end_time: datetime = Field(..., description="Booking end time (UTC)")
     
     class Config:
         json_encoders = {
@@ -106,8 +106,8 @@ class PricingBreakdown(BaseModel):
     
     rule_name: str = Field(..., description="Pricing rule name")
     rule_type: Optional[str] = Field(None, description="Rule type")
-    start_time: datetime = Field(..., description="Start time for this rule")
-    end_time: datetime = Field(..., description="End time for this rule")
+    start_time: datetime = Field(..., description="Start time for this rule (UTC)")
+    end_time: datetime = Field(..., description="End time for this rule (UTC)")
     duration_hours: float = Field(..., description="Duration in hours")
     rate_per_hour: float = Field(..., description="Rate per hour")
     multiplier: Optional[float] = Field(None, description="Price multiplier")
@@ -124,5 +124,5 @@ class PricingPreviewResponse(BaseModel):
     pricing_breakdown: List[PricingBreakdown] = Field(..., description="Detailed pricing breakdown")
     lot_id: str = Field(..., description="Parking lot ID")
     vehicle_type: str = Field(..., description="Vehicle type")
-    start_time: str = Field(..., description="Start time")
-    end_time: str = Field(..., description="End time")
+    start_time: str = Field(..., description="Start time (UTC)")
+    end_time: str = Field(..., description="End time (UTC)")

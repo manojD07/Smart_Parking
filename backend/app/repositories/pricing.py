@@ -240,8 +240,11 @@ class PricingRuleRepository(BaseRepository[PricingRule]):
             # Get all applicable rules for the time period
             current_time = start_time
             pricing_breakdown = []
+            max_iterations = 1000  # Safety limit to prevent infinite loops
+            iteration_count = 0
             
-            while current_time < end_time:
+            while current_time < end_time and iteration_count < max_iterations:
+                iteration_count += 1
                 # Find applicable rules for current time
                 applicable_rules = await self.get_applicable_rules(lot_id, vehicle_type, current_time)
                 
@@ -267,12 +270,14 @@ class PricingRuleRepository(BaseRepository[PricingRule]):
                 
                 # Calculate how long this rule applies
                 if rule.rule_type == PricingRuleType.TIME_BASED.value and rule.start_time and rule.end_time:
-                    # Calculate rule end time for current day
+                    # Calculate rule end time for current day (timezone-aware)
                     rule_end = datetime.combine(current_time.date(), rule.end_time)
+                    rule_end = rule_end.replace(tzinfo=timezone.utc)  # Make timezone-aware
                     if rule.start_time > rule.end_time:
                         # Overnight rule, extends to next day
                         if current_time.time() >= rule.start_time:
                             rule_end = datetime.combine(current_time.date() + timedelta(days=1), rule.end_time)
+                            rule_end = rule_end.replace(tzinfo=timezone.utc)  # Make timezone-aware
                     
                     segment_end = min(end_time, rule_end)
                 else:
@@ -294,7 +299,21 @@ class PricingRuleRepository(BaseRepository[PricingRule]):
                     'amount': segment_amount
                 })
                 
+                # Prevent infinite loop - ensure time advances
+                if segment_end <= current_time:
+                    self.logger.warning("Pricing calculation segment_end not advancing, breaking loop",
+                                      current_time=current_time, segment_end=segment_end)
+                    break
+                
                 current_time = segment_end
+            
+            # Check if we hit the iteration limit
+            if iteration_count >= max_iterations:
+                self.logger.error("Pricing calculation hit iteration limit", 
+                                max_iterations=max_iterations, 
+                                start_time=start_time, 
+                                end_time=end_time)
+                raise Exception("Pricing calculation took too many iterations")
             
             return {
                 'total_amount': round(total_amount, 2),

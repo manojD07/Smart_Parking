@@ -5,6 +5,10 @@ import { Subject, takeUntil } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
 import { Booking } from '../../../core/models/booking.model';
+import { 
+  parseBackendDate, 
+  formatIST 
+} from '../../../core/utils/timezone.util';
 
 @Component({
   selector: 'app-booking-details',
@@ -470,7 +474,7 @@ export class BookingDetailsComponent implements OnInit, OnDestroy {
   }
 
   formatDateTime(dateTime: string): string {
-    return new Date(dateTime).toLocaleString();
+    return formatIST(parseBackendDate(dateTime));
   }
 
   calculateDuration(startTime: string, endTime: string): number {
@@ -480,7 +484,7 @@ export class BookingDetailsComponent implements OnInit, OnDestroy {
   canCheckIn(): boolean {
     if (!this.booking) return false;
     const now = new Date();
-    const startTime = new Date(this.booking.start_time);
+    const startTime = parseBackendDate(this.booking.start_time);
     const timeDiff = Math.abs(now.getTime() - startTime.getTime()) / (1000 * 60); // minutes
     
     return this.booking.status === 'confirmed' && timeDiff <= 30; // 30 minutes window

@@ -34,9 +34,25 @@ class PricingService(BaseService[PricingRule, PricingRuleRepository]):
     ) -> Dict[str, Any]:
         """Calculate total price for a booking based on dynamic pricing rules."""
         try:
-            # Validate input
+            # Enhanced input validation
             if start_time >= end_time:
                 raise ValidationError("Start time must be before end time")
+            
+            # Validate times are timezone-aware
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=timezone.utc)
+            if end_time.tzinfo is None:
+                end_time = end_time.replace(tzinfo=timezone.utc)
+            
+            # Validate booking is not too far in the past
+            current_time = datetime.now(timezone.utc)
+            if end_time < current_time - timedelta(hours=1):
+                raise ValidationError("Cannot calculate pricing for bookings more than 1 hour in the past")
+            
+            # Validate reasonable duration (max 7 days)
+            duration = end_time - start_time
+            if duration.total_seconds() > 7 * 24 * 3600:  # 7 days
+                raise ValidationError("Booking duration cannot exceed 7 days")
             
             # Calculate pricing using repository method
             pricing_result = await self.pricing_repository.calculate_pricing(
@@ -62,10 +78,16 @@ class PricingService(BaseService[PricingRule, PricingRuleRepository]):
             return pricing_result
             
         except ValidationError:
+            # Re-raise validation errors as-is
             raise
         except Exception as e:
-            self.logger.error("Failed to calculate booking price", error=str(e))
-            raise BusinessLogicError("Failed to calculate pricing")
+            self.logger.error("Failed to calculate booking price", 
+                            error=str(e), 
+                            lot_id=lot_id, 
+                            vehicle_type=vehicle_type.value,
+                            start_time=start_time,
+                            end_time=end_time)
+            raise BusinessLogicError(f"Failed to calculate pricing: {str(e)}")
     
     async def get_pricing_preview(
         self,
@@ -92,7 +114,7 @@ class PricingService(BaseService[PricingRule, PricingRuleRepository]):
                 peak_rule = peak_rules[0]
                 if peak_rule.start_time:
                     # Calculate for peak time today
-                    peak_start = datetime.combine(current_time.date(), peak_rule.start_time)
+                    peak_start = datetime.combine(current_time.date(), peak_rule.start_time).replace(tzinfo=timezone.utc)
                     if peak_start < current_time:
                         # Peak time has passed today, use tomorrow
                         peak_start = peak_start + timedelta(days=1)

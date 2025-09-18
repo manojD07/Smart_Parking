@@ -10,6 +10,12 @@ import {
 } from '../../../core/models/slot-chunks.model';
 import { BookingService } from '../services/booking.service';
 import { interval, Subscription } from 'rxjs';
+import { 
+  parseBackendDate, 
+  formatIST, 
+  nowIST,
+  toBackendDate 
+} from '../../../core/utils/timezone.util';
 
 @Component({
   selector: 'app-chunk-selector',
@@ -269,14 +275,18 @@ export class ChunkSelectorComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
 
     try {
-      // Get chunks from now until next day 12:00 AM
-      const now = new Date();
+      // Get chunks from now until next day 12:00 AM (IST to UTC conversion)
+      const now = nowIST();
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(0, 0, 0, 0); // Next day 12:00 AM
 
-      const startTime = now.toISOString();
-      const endTime = tomorrow.toISOString();
+      const startTime = toBackendDate(now);     // Convert IST to UTC for backend
+      const endTime = toBackendDate(tomorrow);  // Convert IST to UTC for backend
+
+      console.log('🔄 Loading chunks for slot:', this.slotId);
+      console.log('- Start time (UTC):', startTime);
+      console.log('- End time (UTC):', endTime);
 
       const availability = await this.bookingService.getSlotChunkAvailability(
         this.slotId,
@@ -284,6 +294,7 @@ export class ChunkSelectorComponent implements OnInit, OnDestroy {
         endTime
       ).toPromise();
 
+      console.log('✅ Chunks loaded:', availability);
       this.processChunks(availability.chunks);
       
     } catch (error) {
@@ -296,9 +307,9 @@ export class ChunkSelectorComponent implements OnInit, OnDestroy {
 
   private processChunks(chunks: TimeChunk[]) {
     // Filter chunks: show if end time is in future OR start time is passed but end time is future
-    const now = new Date();
+    const now = nowIST();
     const validChunks = chunks.filter(chunk => {
-      const endTime = new Date(chunk.end_time);
+      const endTime = parseBackendDate(chunk.end_time);
       return endTime > now;
     });
 
@@ -306,7 +317,7 @@ export class ChunkSelectorComponent implements OnInit, OnDestroy {
     const grouped = new Map<string, TimeChunk[]>();
     
     validChunks.forEach(chunk => {
-      const chunkDate = new Date(chunk.start_time);
+      const chunkDate = parseBackendDate(chunk.start_time);
       const dateKey = chunkDate.toDateString();
       
       if (!grouped.has(dateKey)) {
@@ -318,19 +329,19 @@ export class ChunkSelectorComponent implements OnInit, OnDestroy {
     // Convert to DateGroup array
     this.dateGroups = Array.from(grouped.entries()).map(([dateStr, chunks]) => {
       const date = new Date(dateStr);
-      const today = new Date();
+      const today = nowIST();
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       
       let displayDate = dateStr;
       if (date.toDateString() === today.toDateString()) {
-        displayDate = `Today - ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+        displayDate = `Today - ${date.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}`;
       } else if (date.toDateString() === tomorrow.toDateString()) {
-        displayDate = `Tomorrow - ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+        displayDate = `Tomorrow - ${date.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}`;
       }
 
       // Sort chunks by time
-      chunks.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+      chunks.sort((a, b) => parseBackendDate(a.start_time).getTime() - parseBackendDate(b.start_time).getTime());
 
       return {
         date: dateStr,
@@ -352,7 +363,7 @@ export class ChunkSelectorComponent implements OnInit, OnDestroy {
       // Select - maintain continuous selection
       this.selectedChunks.push(chunk);
       this.selectedChunks.sort((a, b) => 
-        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+        parseBackendDate(a.start_time).getTime() - parseBackendDate(b.start_time).getTime()
       );
     }
 
@@ -407,11 +418,12 @@ export class ChunkSelectorComponent implements OnInit, OnDestroy {
   }
 
   formatChunkTime(isoTime: string): string {
-    const date = new Date(isoTime);
-    return date.toLocaleTimeString('en-US', { 
+    const date = parseBackendDate(isoTime);  // Convert UTC to IST
+    return date.toLocaleTimeString('en-IN', { 
       hour: 'numeric', 
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
     });
   }
 

@@ -5,6 +5,10 @@ import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { ParkingService } from '../services/parking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
 import { ParkingLot, ParkingSlot, AvailabilityResponse } from '../../../core/models/parking.model';
+import { 
+  nowIST,
+  toDatetimeLocalIST
+} from '../../../core/utils/timezone.util';
 
 @Component({
   selector: 'app-parking-details',
@@ -531,13 +535,15 @@ export class ParkingDetailsComponent implements OnInit, OnDestroy {
   bookNow(vehicleType?: string): void {
     if (!this.parkingLot) return;
     
-    const now = new Date();
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    const now = nowIST();
+    // Add 30 minutes buffer to ensure future time
+    const startTime = new Date(now.getTime() + 30 * 60 * 1000);
+    const oneHourLater = new Date(startTime.getTime() + 60 * 60 * 1000);
     
     const queryParams: any = {
       lotId: this.parkingLot.id,
-      startTime: this.formatDateTimeLocal(now),
-      endTime: this.formatDateTimeLocal(oneHourLater)
+      startTime: toDatetimeLocalIST(startTime),
+      endTime: toDatetimeLocalIST(oneHourLater)
     };
     
     if (vehicleType) {

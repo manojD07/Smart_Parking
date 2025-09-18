@@ -46,8 +46,8 @@ class ParkingLotResponse(ParkingLotBase):
     hourly_rate_car: Decimal = Field(..., description="Hourly rate for cars")
     hourly_rate_bike: Decimal = Field(..., description="Hourly rate for bikes")
     is_active: bool = Field(..., description="Whether lot is active")
-    created_at: datetime = Field(..., description="Creation timestamp")
-    updated_at: datetime = Field(..., description="Last update timestamp")
+    created_at: datetime = Field(..., description="Creation timestamp (UTC)")
+    updated_at: datetime = Field(..., description="Last update timestamp (UTC)")
     
     class Config:
         from_attributes = True

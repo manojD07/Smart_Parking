@@ -34,7 +34,7 @@ class ErrorResponse(BaseResponse):
     message: str = Field(..., description="Error message")
     details: Optional[Dict[str, Any]] = Field(None, description="Error details")
     error_type: Optional[str] = Field(None, description="Error type")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp (UTC)")
 
 
 class SuccessResponse(BaseResponse):
@@ -48,7 +48,7 @@ class HealthResponse(BaseResponse):
     """Health check response schema."""
     
     status: str = Field(..., description="Service status")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Check timestamp")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Check timestamp (UTC)")
     version: str = Field(..., description="Service version")
     database: str = Field(..., description="Database status")
     redis: str = Field(..., description="Redis status")
@@ -74,8 +74,8 @@ class SearchRequest(BaseModel):
 class TimeRangeRequest(BaseModel):
     """Time range request schema."""
     
-    start_time: datetime = Field(..., description="Start time")
-    end_time: datetime = Field(..., description="End time")
+    start_time: datetime = Field(..., description="Start time (UTC)")
+    end_time: datetime = Field(..., description="End time (UTC)")
     
     class Config:
         json_encoders = {

@@ -10,6 +10,12 @@ import {
   PricingPreviewResponse
 } from '../../../core/models/booking.model';
 import { SuccessResponse } from '../../../core/models/common.model';
+import { 
+  parseBackendDate, 
+  formatIST, 
+  nowIST,
+  toBackendDate 
+} from '../../../core/utils/timezone.util';
 
 @Injectable({
   providedIn: 'root'
@@ -70,22 +76,22 @@ export class BookingService extends BaseApiService {
     return this.post<PricingPreviewResponse>('/bookings/pricing-preview', pricingRequest);
   }
 
-  // Format booking time for display
+  // Format booking time for display in IST
   formatBookingTime(dateTime: string): string {
-    return new Date(dateTime).toLocaleString();
+    return formatIST(parseBackendDate(dateTime));
   }
 
   // Calculate booking duration in hours
   calculateDuration(startTime: string, endTime: string): number {
-    const start = new Date(startTime);
-    const end = new Date(endTime);
+    const start = parseBackendDate(startTime);
+    const end = parseBackendDate(endTime);
     return Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60);
   }
 
   // Check if booking can be cancelled
   canCancelBooking(booking: Booking): boolean {
-    const now = new Date();
-    const startTime = new Date(booking.start_time);
+    const now = nowIST();
+    const startTime = parseBackendDate(booking.start_time);
     const timeDiff = startTime.getTime() - now.getTime();
     const hoursUntilStart = timeDiff / (1000 * 60 * 60);
     
@@ -95,8 +101,8 @@ export class BookingService extends BaseApiService {
 
   // Check if booking can be modified
   canModifyBooking(booking: Booking): boolean {
-    const now = new Date();
-    const startTime = new Date(booking.start_time);
+    const now = nowIST();
+    const startTime = parseBackendDate(booking.start_time);
     const timeDiff = startTime.getTime() - now.getTime();
     const hoursUntilStart = timeDiff / (1000 * 60 * 60);
     

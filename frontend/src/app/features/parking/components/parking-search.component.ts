@@ -7,6 +7,12 @@ import { ParkingService } from '../services/parking.service';
 import { BookingService } from '../../booking/services/booking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
 import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/models/parking.model';
+import { 
+  nowIST,
+  toBackendDate,
+  toDatetimeLocalIST,
+  fromDatetimeLocalToUTC
+} from '../../../core/utils/timezone.util';
 
 @Component({
   selector: 'app-parking-search',
@@ -114,7 +120,9 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
 
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="startTime" class="form-label">Start Time</label>
+                    <label for="startTime" class="form-label">
+                      Start Time <small class="text-muted">(IST)</small>
+                    </label>
                     <input
                       type="datetime-local"
                       class="form-control"
@@ -128,7 +136,9 @@ import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/mod
                   </div>
 
                   <div class="col-md-6 mb-3">
-                    <label for="endTime" class="form-label">End Time</label>
+                    <label for="endTime" class="form-label">
+                      End Time <small class="text-muted">(IST)</small>
+                    </label>
                     <input
                       type="datetime-local"
                       class="form-control"
@@ -383,14 +393,16 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
   }
 
   private createSearchForm(): FormGroup {
-    const now = new Date();
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    const now = nowIST();
+    // Add 30 minutes buffer to ensure future time after conversion
+    const startTime = new Date(now.getTime() + 30 * 60 * 1000); // +30 minutes from now
+    const oneHourLater = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 hour from start
 
     return this.fb.group({
       vehicleType: ['', Validators.required],
       location: [''],
-      startTime: [this.formatDateTimeLocal(now), Validators.required],
-      endTime: [this.formatDateTimeLocal(oneHourLater), Validators.required],
+      startTime: [toDatetimeLocalIST(startTime), Validators.required],
+      endTime: [toDatetimeLocalIST(oneHourLater), Validators.required],
       radius: [10],
       sortBy: ['distance']
     });
@@ -541,22 +553,33 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Convert form times to ISO format
-    const startISO = new Date(startTime).toISOString();
-    const endISO = new Date(endTime).toISOString();
+    // Convert IST form times to UTC for backend
+    const startISO = fromDatetimeLocalToUTC(startTime);  // IST datetime-local → UTC
+    const endISO = fromDatetimeLocalToUTC(endTime);      // IST datetime-local → UTC
+
+    // Debug: Log the conversion
+    console.log('🔍 Timezone conversion debug:');
+    console.log('  Form startTime (IST):', startTime);
+    console.log('  Form endTime (IST):', endTime);
+    console.log('  Converted startISO (UTC):', startISO);
+    console.log('  Converted endISO (UTC):', endISO);
 
     let processedCount = 0;
     const enhancedLots = [...lots];
 
     lots.forEach((lot, index) => {
-      // Get both availability and pricing data
-      const availabilityCall = this.parkingService.checkAvailability(lot.id, vehicleType, startISO, endISO);
-      const pricingCall = this.bookingService.getPricingPreview({
+      // Debug: Log the pricing request data
+      const pricingRequestData = {
         lot_id: lot.id,
         vehicle_type: vehicleType,
         start_time: startISO,
         end_time: endISO
-      });
+      };
+      console.log('📤 Pricing request for lot:', lot.name, pricingRequestData);
+
+      // Get both availability and pricing data
+      const availabilityCall = this.parkingService.checkAvailability(lot.id, vehicleType, startISO, endISO);
+      const pricingCall = this.bookingService.getPricingPreview(pricingRequestData);
 
       // Combine both calls
       availabilityCall.pipe(takeUntil(this.destroy$)).subscribe({
@@ -579,7 +602,11 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
                 this.finishEnhancement(enhancedLots);
               }
             },
-            error: () => {
+            error: (error) => {
+              console.error('❌ Pricing preview error for lot:', lot.name, error);
+              console.error('   Request data was:', pricingRequestData);
+              console.error('   Error details:', error.error);
+              
               processedCount++;
               if (processedCount === lots.length) {
                 this.finishEnhancement(enhancedLots);

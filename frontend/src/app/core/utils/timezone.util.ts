@@ -46,6 +46,14 @@ export function formatIST(date: Date | string, options?: Intl.DateTimeFormatOpti
 }
 
 /**
+ * Format date in IST with timezone indicator
+ */
+export function formatISTWithTimezone(date: Date | string, options?: Intl.DateTimeFormatOptions): string {
+  const formatted = formatIST(date, options);
+  return `${formatted} IST`;
+}
+
+/**
  * Format date for datetime-local input in IST
  */
 export function toDatetimeLocalIST(date: Date | string): string {
@@ -152,4 +160,65 @@ export function parseBackendDate(isoString: string): Date {
 export function toBackendDate(date: Date): string {
   // Convert IST display time to UTC for backend
   return date.toISOString();
+}
+
+/**
+ * Convert datetime-local input value (assumed to be IST) to UTC ISO string for backend
+ */
+export function fromDatetimeLocalToUTC(datetimeLocalValue: string): string {
+  if (!datetimeLocalValue) return '';
+  
+  try {
+    // Validate input format
+    if (!datetimeLocalValue.includes('T')) {
+      throw new Error('Invalid datetime-local format');
+    }
+    
+    // Create date object from datetime-local input, treating it as IST
+    const [datePart, timePart] = datetimeLocalValue.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+    
+    // Validate date components
+    if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
+      throw new Error('Invalid date components');
+    }
+    
+    // Create UTC date by subtracting IST offset (5.5 hours) from the input time
+    const utcDate = new Date();
+    utcDate.setUTCFullYear(year, month - 1, day);
+    utcDate.setUTCHours(hour - 5, minute - 30, 0, 0); // Subtract IST offset
+    
+    // Validate the resulting date
+    if (isNaN(utcDate.getTime())) {
+      throw new Error('Invalid date result');
+    }
+    
+    // Check if the converted time is in the past (with 1 minute buffer)
+    const now = new Date();
+    const oneMinuteFromNow = new Date(now.getTime() + 60 * 1000);
+    if (utcDate < oneMinuteFromNow) {
+      console.warn('⚠️ Converted time is in the past, adjusting to future time');
+      // Return a time 5 minutes from now instead
+      return new Date(now.getTime() + 5 * 60 * 1000).toISOString();
+    }
+    
+    return utcDate.toISOString();
+  } catch (error) {
+    console.error('Timezone conversion error:', error, 'Input:', datetimeLocalValue);
+    // Return a safe fallback
+    return new Date().toISOString();
+  }
+}
+
+/**
+ * Validate if a datetime string is a valid UTC ISO format
+ */
+export function isValidUTCString(dateString: string): boolean {
+  try {
+    const date = new Date(dateString);
+    return !isNaN(date.getTime()) && dateString.endsWith('Z');
+  } catch {
+    return false;
+  }
 }

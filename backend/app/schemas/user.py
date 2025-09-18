@@ -36,8 +36,8 @@ class UserResponse(UserBase):
     is_admin: bool = Field(..., description="Whether user is admin")
     is_active: bool = Field(..., description="Whether user is active")
     total_spent: float = Field(default=0.0, description="Total amount spent by user")
-    created_at: datetime = Field(..., description="User creation timestamp")
-    updated_at: datetime = Field(..., description="User last update timestamp")
+    created_at: datetime = Field(..., description="User creation timestamp (UTC)")
+    updated_at: datetime = Field(..., description="User last update timestamp (UTC)")
     
     class Config:
         from_attributes = True

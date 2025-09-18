@@ -10,6 +10,13 @@ import { ChunkSelectorComponent } from './chunk-selector.component';
 import { ParkingLot } from '../../../core/models/parking.model';
 import { PricingPreviewResponse, Booking } from '../../../core/models/booking.model';
 import { TimeChunk, ChunkSelectionEvent } from '../../../core/models/slot-chunks.model';
+import { 
+  nowIST,
+  toBackendDate,
+  toDatetimeLocalIST,
+  parseBackendDate,
+  fromDatetimeLocalToUTC
+} from '../../../core/utils/timezone.util';
 
 @Component({
   selector: 'app-booking-form',
@@ -120,7 +127,9 @@ import { TimeChunk, ChunkSelectionEvent } from '../../../core/models/slot-chunks
 
                   <div class="row">
                     <div class="col-md-6 mb-3">
-                      <label for="startTime" class="form-label">Start Time</label>
+                      <label for="startTime" class="form-label">
+                        Start Time <small class="text-muted">(IST)</small>
+                      </label>
                       <input
                         type="datetime-local"
                         class="form-control"
@@ -136,7 +145,9 @@ import { TimeChunk, ChunkSelectionEvent } from '../../../core/models/slot-chunks
                     </div>
 
                     <div class="col-md-6 mb-3">
-                      <label for="endTime" class="form-label">End Time</label>
+                      <label for="endTime" class="form-label">
+                        End Time <small class="text-muted">(IST)</small>
+                      </label>
                       <input
                         type="datetime-local"
                         class="form-control"
@@ -343,30 +354,26 @@ export class BookingFormComponent implements OnInit, OnDestroy {
   }
 
   private createBookingForm(): FormGroup {
-    // Set default times: start time = current time + 1 hour, end time = start + 2 hours
-    const now = new Date();
-    const startTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hour
-    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 hour from start
+    // Set default times in IST: start time = current IST time + 30 minutes, end time = start + 2 hours
+    const now = nowIST();
+    const startTime = new Date(now.getTime() + 30 * 60 * 1000); // +30 minutes (buffer for future time)
+    const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000); // +2 hours from start
     
     return this.fb.group({
       vehicleType: ['', Validators.required],
       vehicleNumber: ['', [Validators.required, Validators.minLength(3)]],
-      startTime: [this.formatDatetimeLocal(startTime), Validators.required],
-      endTime: [this.formatDatetimeLocal(endTime), Validators.required]
+      startTime: [toDatetimeLocalIST(startTime), Validators.required],
+      endTime: [toDatetimeLocalIST(endTime), Validators.required]
     });
   }
 
   private formatDatetimeLocal(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    // Use IST timezone utility instead of manual formatting
+    return toDatetimeLocalIST(date);
   }
 
   get minStartTime(): string {
-    const now = new Date();
+    const now = nowIST();
     return this.formatDatetimeLocal(now);
   }
 
@@ -376,7 +383,7 @@ export class BookingFormComponent implements OnInit, OnDestroy {
       const startTime = new Date(startTimeValue);
       return this.formatDatetimeLocal(new Date(startTime.getTime() + 30 * 60 * 1000)); // +30 min minimum duration
     }
-    const now = new Date();
+    const now = nowIST();
     return this.formatDatetimeLocal(new Date(now.getTime() + 30 * 60 * 1000));
   }
 
@@ -426,11 +433,26 @@ export class BookingFormComponent implements OnInit, OnDestroy {
     }
     
     if (queryParams['startTime']) {
-      formData.startTime = queryParams['startTime'];
-    }
-    
-    if (queryParams['endTime']) {
-      formData.endTime = queryParams['endTime'];
+      // Validate that the query param time is still in the future
+      const queryStartTime = new Date(queryParams['startTime']);
+      const now = nowIST();
+      const minStartTime = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes from now
+      
+      if (queryStartTime < minStartTime) {
+        console.log('⚠️ Query param start time is in past, using default future time');
+        formData.startTime = toDatetimeLocalIST(minStartTime);
+        // Also update end time to maintain duration
+        if (queryParams['endTime']) {
+          const originalDuration = new Date(queryParams['endTime']).getTime() - queryStartTime.getTime();
+          const newEndTime = new Date(minStartTime.getTime() + Math.max(originalDuration, 60 * 60 * 1000)); // At least 1 hour
+          formData.endTime = toDatetimeLocalIST(newEndTime);
+        }
+      } else {
+        formData.startTime = queryParams['startTime'];
+        if (queryParams['endTime']) {
+          formData.endTime = queryParams['endTime'];
+        }
+      }
     }
 
     this.bookingForm.patchValue(formData);
@@ -491,12 +513,41 @@ export class BookingFormComponent implements OnInit, OnDestroy {
       this.loadingPrice = true;
       
       const formValue = this.bookingForm.value;
+      
+      // Debug: Log form values
+      console.log('🔍 Booking form pricing calculation:');
+      console.log('  Form startTime (IST):', formValue.startTime);
+      console.log('  Form endTime (IST):', formValue.endTime);
+      
+      // Convert IST form input to UTC for backend
+      const convertedStartTime = fromDatetimeLocalToUTC(formValue.startTime);
+      const convertedEndTime = fromDatetimeLocalToUTC(formValue.endTime);
+      
+      console.log('  Converted startTime (UTC):', convertedStartTime);
+      console.log('  Converted endTime (UTC):', convertedEndTime);
+      
+      // Validate that times are in the future
+      const now = new Date();
+      if (new Date(convertedStartTime) <= now) {
+        console.error('❌ Start time is in the past, cannot calculate pricing');
+        this.loadingPrice = false;
+        return;
+      }
+      
+      if (new Date(convertedEndTime) <= new Date(convertedStartTime)) {
+        console.error('❌ End time must be after start time');
+        this.loadingPrice = false;
+        return;
+      }
+      
       const pricingRequest = {
         lot_id: this.selectedLot.id,
         vehicle_type: formValue.vehicleType,
-        start_time: formValue.startTime,
-        end_time: formValue.endTime
+        start_time: convertedStartTime,  // IST datetime-local → UTC
+        end_time: convertedEndTime       // IST datetime-local → UTC
       };
+      
+      console.log('📤 Booking form pricing request:', pricingRequest);
 
       this.bookingService.getPricingPreview(pricingRequest)
         .pipe(takeUntil(this.destroy$))
@@ -506,7 +557,9 @@ export class BookingFormComponent implements OnInit, OnDestroy {
             this.loadingPrice = false;
           },
           error: (error) => {
-            console.error('Error calculating pricing:', error);
+            console.error('❌ Booking form pricing error:', error);
+            console.error('   Request data was:', pricingRequest);
+            console.error('   Error details:', error.error);
             this.loadingPrice = false;
           }
         });
@@ -522,9 +575,11 @@ export class BookingFormComponent implements OnInit, OnDestroy {
       const chunkIds = this.selectedChunks.map(chunk => chunk.id);
       
       console.log('🔄 Starting chunk-based payment flow...');
-      console.log('- Selected chunks:', chunkIds.length);
+      console.log('- Selected chunks:', chunkIds.length, chunkIds);
       console.log('- Lot:', this.selectedLot.name);
       console.log('- Vehicle:', this.bookingForm.value.vehicleType);
+      console.log('- Form valid:', this.bookingForm.valid);
+      console.log('- Form value:', this.bookingForm.value);
       
       // Reserve chunks in Redis with 10-minute UTC-based TTL
       this.bookingService.reserveChunks(chunkIds)

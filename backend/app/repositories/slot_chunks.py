@@ -22,6 +22,28 @@ class SlotTimeChunkRepository(BaseRepository[SlotTimeChunk]):
     def __init__(self, session: AsyncSession):
         super().__init__(session, SlotTimeChunk)
     
+    async def get_chunks_by_ids(self, chunk_ids: List[str]) -> List[SlotTimeChunk]:
+        """Get chunks by their IDs."""
+        try:
+            if not chunk_ids:
+                return []
+            
+            # Convert string IDs to UUIDs
+            uuid_ids = [UUID(chunk_id) for chunk_id in chunk_ids]
+            
+            query = (
+                select(SlotTimeChunk)
+                .where(SlotTimeChunk.id.in_(uuid_ids))
+                .order_by(SlotTimeChunk.start_time)
+            )
+            
+            result = await self.session.execute(query)
+            return list(result.scalars().all())
+            
+        except Exception as e:
+            logger.error("Failed to get chunks by IDs", chunk_ids=chunk_ids, error=str(e))
+            return []
+    
     async def generate_chunks_for_slot(
         self,
         slot_id: UUID,

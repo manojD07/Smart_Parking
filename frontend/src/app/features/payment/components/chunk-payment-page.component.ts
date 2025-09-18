@@ -516,7 +516,7 @@ export class ChunkPaymentPageComponent implements OnInit, OnDestroy {
     Object.keys(this.paymentForm.controls).forEach(key => {
       if (key !== 'paymentMethod') {
         this.paymentForm.get(key)?.clearValidators();
-        this.paymentForm.get(key)?.updateValueAndValidity();
+        // Don't call updateValueAndValidity here to avoid circular calls
       }
     });
 
@@ -554,10 +554,15 @@ export class ChunkPaymentPageComponent implements OnInit, OnDestroy {
         break;
     }
 
-    // Update validity
-    Object.keys(this.paymentForm.controls).forEach(key => {
-      this.paymentForm.get(key)?.updateValueAndValidity();
-    });
+    // Update validity only for controls that got new validators
+    // Use setTimeout to avoid circular calls during value change events
+    setTimeout(() => {
+      Object.keys(this.paymentForm.controls).forEach(key => {
+        if (key !== 'paymentMethod') {
+          this.paymentForm.get(key)?.updateValueAndValidity({ emitEvent: false });
+        }
+      });
+    }, 0);
   }
 
   ngOnInit() {

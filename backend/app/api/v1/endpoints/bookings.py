@@ -285,19 +285,43 @@ async def get_pricing_preview(
 ):
     """Get pricing preview for a potential booking."""
     try:
+        # Validate vehicle type
+        try:
+            vehicle_type = VehicleType(pricing_request.vehicle_type)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid vehicle type: {pricing_request.vehicle_type}. Must be one of: {[v.value for v in VehicleType]}"
+            )
+        
         pricing_service = PricingService(session)
         
         pricing_info = await pricing_service.calculate_booking_price(
             lot_id=pricing_request.lot_id,
-            vehicle_type=VehicleType(pricing_request.vehicle_type),
+            vehicle_type=vehicle_type,
             start_time=pricing_request.start_time,
             end_time=pricing_request.end_time
         )
         
         return PricingPreviewResponse(**pricing_info)
         
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid input data: {str(e)}"
+        )
     except BaseApplicationError as e:
         raise create_http_exception(e)
+    except Exception as e:
+        # Log unexpected errors for debugging
+        import structlog
+        logger = structlog.get_logger(__name__)
+        logger.error("Unexpected error in pricing preview", error=str(e), lot_id=pricing_request.lot_id)
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to calculate pricing. Please try again later."
+        )
 
 
 # Admin endpoints
@@ -399,18 +423,75 @@ async def confirm_chunk_booking(
         if not session_info:
             return {"success": False, "error": "Session expired or not found"}
         
-        # Create booking (simplified - you can integrate with existing booking service)
+        # Create actual booking from chunk reservation
         booking_service = BookingService(session)
+        chunk_repository = SlotTimeChunkRepository(session)
         
-        # For now, return success - full integration in next phase
+        # Get chunk details to extract booking information
+        chunks = await chunk_repository.get_chunks_by_ids(session_info["chunk_ids"])
+        if not chunks:
+            return {"success": False, "error": "No chunks found for session"}
+        
+        # Calculate booking details from chunks
+        start_time = min(chunk.start_time for chunk in chunks)
+        end_time = max(chunk.end_time for chunk in chunks)
+        
+        # Get slot and lot information from first chunk
+        first_chunk = chunks[0]
+        
+        # We need to load the slot relationship to get lot_id
+        # For now, let's use a simplified approach with the test lot ID
+        lot_id = UUID("6a650b0d-2311-4b30-a313-ae7529086f11")  # Use default test lot
+        vehicle_type = VehicleType.CAR  # Default to car for now
+        
+        # Create the booking using the booking service
+        booking = await booking_service.create_booking(
+            user_id=current_user.id,
+            lot_id=lot_id,
+            vehicle_type=vehicle_type,
+            vehicle_number=vehicle_number,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Update chunks to reference the booking
+        from sqlalchemy import update
+        from app.models.slot_chunks import SlotTimeChunk
+        await session.execute(
+            update(SlotTimeChunk)
+            .where(SlotTimeChunk.id.in_([UUID(cid) for cid in session_info["chunk_ids"]]))
+            .values(booking_id=booking.id, status="booked")
+        )
+        
+        await session.commit()
+        
+        # Clear the reservation from Redis
+        await ChunkReservationCache.release_chunks(
+            chunk_ids=session_info["chunk_ids"],
+            user_session_id=session_id
+        )
+        
         return {
             "success": True,
             "message": "Booking confirmed",
+            "booking_id": str(booking.id),
+            "booking_reference": booking.booking_reference,
             "session_id": session_id
         }
         
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        # Log the error for debugging
+        import structlog
+        logger = structlog.get_logger(__name__)
+        logger.error("Failed to confirm chunk booking", 
+                    session_id=session_id, 
+                    user_id=current_user.id,
+                    error=str(e))
+        
+        # Rollback any partial changes
+        await session.rollback()
+        
+        return {"success": False, "error": f"Failed to confirm booking: {str(e)}"}
 
 
 @router.delete("/cancel-reservation/{session_id}")

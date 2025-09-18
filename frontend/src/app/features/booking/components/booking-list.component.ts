@@ -5,6 +5,10 @@ import { Subject, takeUntil } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
 import { Booking, BookingStatus } from '../../../core/models/booking.model';
+import { 
+  parseBackendDate, 
+  formatIST 
+} from '../../../core/utils/timezone.util';
 
 @Component({
   selector: 'app-booking-list',
@@ -350,7 +354,7 @@ export class BookingListComponent implements OnInit, OnDestroy {
 
   private isUpcoming(booking: Booking): boolean {
     const now = new Date();
-    const startTime = new Date(booking.start_time);
+    const startTime = parseBackendDate(booking.start_time);
     return startTime > now && booking.status === 'confirmed';
   }
 
@@ -372,7 +376,7 @@ export class BookingListComponent implements OnInit, OnDestroy {
   }
 
   formatDateTime(dateTime: string): string {
-    return new Date(dateTime).toLocaleString();
+    return formatIST(parseBackendDate(dateTime));
   }
 
   calculateDuration(startTime: string, endTime: string): number {
@@ -389,7 +393,7 @@ export class BookingListComponent implements OnInit, OnDestroy {
 
   canCheckIn(booking: Booking): boolean {
     const now = new Date();
-    const startTime = new Date(booking.start_time);
+    const startTime = parseBackendDate(booking.start_time);
     const timeDiff = Math.abs(now.getTime() - startTime.getTime()) / (1000 * 60); // minutes
     
     return booking.status === 'confirmed' && timeDiff <= 30; // 30 minutes window
@@ -401,7 +405,7 @@ export class BookingListComponent implements OnInit, OnDestroy {
 
   getTimeStatus(booking: Booking): string {
     const now = new Date();
-    const endTime = new Date(booking.end_time);
+    const endTime = parseBackendDate(booking.end_time);
     const timeDiff = endTime.getTime() - now.getTime();
     const hoursLeft = timeDiff / (1000 * 60 * 60);
     

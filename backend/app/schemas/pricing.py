@@ -27,8 +27,8 @@ class PricingRuleResponse(BaseModel):
     priority: str = Field(..., description="Rule priority")
     valid_from: Optional[time] = Field(None, description="Valid from time")
     valid_until: Optional[time] = Field(None, description="Valid until time")
-    created_at: datetime = Field(..., description="Creation timestamp")
-    updated_at: datetime = Field(..., description="Last update timestamp")
+    created_at: datetime = Field(..., description="Creation timestamp (UTC)")
+    updated_at: datetime = Field(..., description="Last update timestamp (UTC)")
     
     # Computed fields
     days_list: List[str] = Field(default_factory=list, description="Days of week as list")
