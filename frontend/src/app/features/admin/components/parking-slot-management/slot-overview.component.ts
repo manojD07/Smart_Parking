@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 
@@ -218,7 +218,16 @@ import { ConfirmationModalComponent } from '../shared/confirmation-modal.compone
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
               Close
             </button>
-            <!-- Future: Add slot management actions here -->
+            <button 
+              type="button" 
+              class="btn btn-sm me-2"
+              [class]="selectedSlot?.status === 'INACTIVE' ? 'btn-success' : 'btn-warning'"
+              (click)="toggleSlotStatus()"
+              [disabled]="!selectedSlot || selectedSlot.is_occupied || selectedSlot.is_reserved || togglingSlotStatus">
+              <span *ngIf="togglingSlotStatus" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              <i *ngIf="!togglingSlotStatus" class="fas" [class]="selectedSlot?.status === 'INACTIVE' ? 'fa-check' : 'fa-ban'"></i>
+              {{ selectedSlot?.status === 'INACTIVE' ? 'Activate' : 'Deactivate' }}
+            </button>
           </div>
         </div>
       </div>
@@ -272,12 +281,14 @@ import { ConfirmationModalComponent } from '../shared/confirmation-modal.compone
 })
 export class SlotOverviewComponent implements OnInit {
   @Input() selectedLot: ParkingLot | null = null;
+  @ViewChild('slotGrid') slotGrid!: SlotGridComponent;
 
   // Forms
   addSlotsForm: FormGroup;
 
   // UI State
   addingSlots = false;
+  togglingSlotStatus = false;
   selectedSlot: ParkingSlot | null = null;
   currentSlots: ParkingSlot[] = [];
 
@@ -308,11 +319,14 @@ export class SlotOverviewComponent implements OnInit {
   }
 
   onSlotSelected(slot: ParkingSlot): void {
+    console.log('🎯 Slot selected:', slot);
     this.selectedSlot = slot;
     const modalElement = document.getElementById('slotDetailsModal');
     if (modalElement) {
       const modal = new (window as any).bootstrap.Modal(modalElement);
       modal.show();
+    } else {
+      console.error('❌ Slot details modal element not found');
     }
   }
 
@@ -391,6 +405,55 @@ export class SlotOverviewComponent implements OnInit {
       'inactive': 'bg-secondary'
     };
     return classes[status] || 'bg-secondary';
+  }
+
+  async toggleSlotStatus(): Promise<void> {
+    if (!this.selectedSlot) return;
+
+    try {
+      this.togglingSlotStatus = true;
+      const isCurrentlyInactive = this.selectedSlot.status === 'INACTIVE';
+      console.log('🔄 Toggling slot status:', this.selectedSlot.slot_number, 'Currently inactive:', isCurrentlyInactive);
+      
+      let success: boolean;
+      if (isCurrentlyInactive) {
+        success = await this.slotService.activateSlot(this.selectedSlot.id);
+      } else {
+        success = await this.slotService.deactivateSlot(this.selectedSlot.id);
+      }
+
+      if (success) {
+        const action = isCurrentlyInactive ? 'activated' : 'deactivated';
+        this.toastService.showSuccess(`Slot ${this.selectedSlot.slot_number} ${action} successfully`);
+        
+        // Close slot details modal
+        const modalElement = document.getElementById('slotDetailsModal');
+        if (modalElement) {
+          const modal = (window as any).bootstrap.Modal.getInstance(modalElement);
+          if (modal) modal.hide();
+        }
+        
+        // Auto-refresh the slot grid
+        if (this.slotGrid) {
+          await this.slotGrid.refreshSlots();
+        }
+      } else {
+        const action = isCurrentlyInactive ? 'activate' : 'deactivate';
+        this.toastService.showError(`Failed to ${action} slot`);
+      }
+
+    } catch (error) {
+      console.error('Error toggling slot status:', error);
+      const action = this.selectedSlot.status === 'INACTIVE' ? 'activate' : 'deactivate';
+      
+      if (error instanceof Error && error.message.includes('backend implementation')) {
+        this.toastService.showWarning(`Slot ${action} feature requires backend API implementation`);
+      } else {
+        this.toastService.showError(`Failed to ${action} slot`);
+      }
+    } finally {
+      this.togglingSlotStatus = false;
+    }
   }
 
   formatDate(dateString: string): string {

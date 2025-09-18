@@ -126,6 +126,38 @@ export class ParkingSlotService extends BaseApiService {
   }
 
   /**
+   * Deactivate a parking slot (Admin only)
+   * Note: Since backend doesn't have specific slot activate/deactivate endpoints,
+   * this is a placeholder that will show an appropriate message
+   */
+  async deactivateSlot(slotId: string): Promise<boolean> {
+    try {
+      // For now, we'll simulate the operation since the backend endpoint doesn't exist
+      console.warn('⚠️ Slot deactivation endpoint not available in backend');
+      throw new Error('Slot deactivation functionality requires backend implementation');
+    } catch (error) {
+      console.error('Error deactivating slot:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Activate a parking slot (Admin only)
+   * Note: Since backend doesn't have specific slot activate/deactivate endpoints,
+   * this is a placeholder that will show an appropriate message
+   */
+  async activateSlot(slotId: string): Promise<boolean> {
+    try {
+      // For now, we'll simulate the operation since the backend endpoint doesn't exist
+      console.warn('⚠️ Slot activation endpoint not available in backend');
+      throw new Error('Slot activation functionality requires backend implementation');
+    } catch (error) {
+      console.error('Error activating slot:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Group slots by type for display
    */
   groupSlotsByType(slots: ParkingSlot[]): { carSlots: ParkingSlot[], bikeSlots: ParkingSlot[] } {
