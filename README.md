@@ -85,37 +85,62 @@ The Smart Parking Management System is a modern, scalable solution designed for 
 
 ### DevOps
 - **Docker & Docker Compose** - Containerization
+- **One-Click Deployment** - Complete system startup
+- **Multi-Environment Support** - Production & Development modes
 - **Nginx** - Reverse proxy (production)
 - **pytest** - Comprehensive testing
 - **GitHub Actions** - CI/CD pipeline
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 🐳 **One-Command Startup (Recommended)**
+```bash
+# Start complete system with sample data
+./start-smart-parking.sh
+
+# Or for development with hot reload
+./start-dev.sh
+```
+
+**What you get:**
+- ✅ Complete full-stack system running
+- ✅ Comprehensive sample data pre-loaded
+- ✅ 23 test users, 7 parking lots, 1000+ slots
+- ✅ Ready for immediate testing and demonstration
+
+**Access Points:**
+- **Frontend**: http://localhost:4200
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Celery Monitor**: http://localhost:5555
+
+### 📋 **Manual Setup (Alternative)**
+
+#### Prerequisites
 - **Docker & Docker Compose**
 - **Node.js 18+** (for frontend development)
 - **Python 3.9+** (for backend development)
 
-### 1. Clone Repository
+#### 1. Clone Repository
 ```bash
 git clone <repository-url>
 cd smart-parking-management
 ```
 
-### 2. Start Backend Services
+#### 2. Start Backend Services
 ```bash
 cd backend
 docker-compose up --build
 ```
 
-### 3. Start Frontend Development Server
+#### 3. Start Frontend Development Server
 ```bash
 cd frontend
 npm install
 ng serve
 ```
 
-### 4. Access Application
+#### 4. Access Application
 - **Frontend**: http://localhost:4200
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
@@ -275,8 +300,10 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ## 📚 Documentation
 
+- **🐳 Docker Setup**: See `DOCKER_SETUP.md` for complete containerization guide
 - **API Documentation**: Available at `/docs` endpoint
 - **Database Schema**: See `/backend/alembic/versions/`
+- **Database Seeding**: See `/backend/scripts/README_Database_Seeding.md`
 - **Frontend Components**: TypeScript interfaces and services
 - **Test Documentation**: See `/complete_backend_API_test/README.md`
 
