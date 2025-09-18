@@ -40,7 +40,8 @@ import { ConfirmationModalComponent } from '../shared/confirmation-modal.compone
               [autoRefreshEnabled]="true"
               (slotSelected)="onSlotSelected($event)"
               (addSlotsRequested)="onAddSlotsRequested($event)"
-              (slotsUpdated)="onSlotsUpdated($event)">
+              (slotsUpdated)="onSlotsUpdated($event)"
+              (bulkDeleteRequested)="onBulkDeleteRequested($event)">
             </app-slot-grid>
           </div>
           
@@ -228,6 +229,103 @@ import { ConfirmationModalComponent } from '../shared/confirmation-modal.compone
               <i *ngIf="!togglingSlotStatus" class="fas" [class]="(selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive') ? 'fa-check' : 'fa-ban'"></i>
               {{ (selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive') ? 'Reactivate' : 'Deactivate' }}
             </button>
+            
+            <!-- Delete Button - Only show for inactive slots -->
+            <button 
+              *ngIf="selectedSlot?.status === 'INACTIVE' || selectedSlot?.status === 'inactive'"
+              type="button" 
+              class="btn btn-danger btn-sm"
+              (click)="confirmDeleteSlot()"
+              [disabled]="!selectedSlot || deletingSlot">
+              <span *ngIf="deletingSlot" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              <i *ngIf="!deletingSlot" class="fas fa-trash me-1"></i>
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+              Confirm Delete
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-3">
+              Are you sure you want to delete slot <strong>{{ slotToDelete?.slot_number }}</strong>?
+            </p>
+            <div class="alert alert-warning">
+              <i class="fas fa-exclamation-triangle me-2"></i>
+              <strong>Warning:</strong> This action cannot be undone. The slot will be permanently removed from the system.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              Cancel
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-danger"
+              (click)="deleteSlot()"
+              [disabled]="deletingSlot">
+              <span *ngIf="deletingSlot" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              <i *ngIf="!deletingSlot" class="fas fa-trash me-1"></i>
+              Delete Slot
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Delete Confirmation Modal -->
+    <div class="modal fade" id="bulkDeleteConfirmationModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+              Confirm Bulk Delete
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-3">
+              Are you sure you want to delete <strong>{{ bulkSlotsToDelete.length }}</strong> selected slots?
+            </p>
+            <div class="alert alert-danger">
+              <i class="fas fa-exclamation-triangle me-2"></i>
+              <strong>Warning:</strong> This action cannot be undone. All selected slots will be permanently removed from the system.
+            </div>
+            <div class="border rounded p-2 bg-light">
+              <small class="text-muted">Slots to delete:</small>
+              <div class="mt-1">
+                <span *ngFor="let slot of bulkSlotsToDelete; let last = last" 
+                      class="badge bg-secondary me-1">
+                  {{ slot.slot_number }}{{ !last ? ',' : '' }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              Cancel
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-danger"
+              (click)="bulkDeleteSlots()"
+              [disabled]="deletingMultipleSlots">
+              <span *ngIf="deletingMultipleSlots" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              <i *ngIf="!deletingMultipleSlots" class="fas fa-trash me-1"></i>
+              Delete {{ bulkSlotsToDelete.length }} Slots
+            </button>
           </div>
         </div>
       </div>
@@ -291,6 +389,12 @@ export class SlotOverviewComponent implements OnInit {
   togglingSlotStatus = false;
   selectedSlot: ParkingSlot | null = null;
   currentSlots: ParkingSlot[] = [];
+  
+  // Delete functionality
+  slotToDelete: ParkingSlot | null = null;
+  deletingSlot = false;
+  deletingMultipleSlots = false;
+  bulkSlotsToDelete: ParkingSlot[] = [];
 
   constructor(
     private parkingLotService: ParkingLotService,
@@ -453,6 +557,146 @@ export class SlotOverviewComponent implements OnInit {
       }
     } finally {
       this.togglingSlotStatus = false;
+    }
+  }
+
+  // Delete slot functionality
+  confirmDeleteSlot(): void {
+    if (!this.selectedSlot) return;
+    
+    this.slotToDelete = this.selectedSlot;
+    
+    // Open confirmation modal
+    const modalElement = document.getElementById('deleteConfirmationModal');
+    if (modalElement) {
+      const modal = new (window as any).bootstrap.Modal(modalElement);
+      modal.show();
+    }
+  }
+
+  async deleteSlot(): Promise<void> {
+    if (!this.slotToDelete) return;
+
+    try {
+      this.deletingSlot = true;
+      console.log('🗑️ Deleting slot:', this.slotToDelete.slot_number);
+      
+      const success = await this.slotService.deleteSlot(this.slotToDelete.id);
+      
+      if (success) {
+        this.toastService.showSuccess(`Slot ${this.slotToDelete.slot_number} deleted successfully`);
+        
+        // Close confirmation modal
+        const modalElement = document.getElementById('deleteConfirmationModal');
+        if (modalElement) {
+          const modal = (window as any).bootstrap.Modal.getInstance(modalElement);
+          if (modal) modal.hide();
+        }
+        
+        // Close slot details modal
+        const slotModalElement = document.getElementById('slotModal');
+        if (slotModalElement) {
+          const slotModal = (window as any).bootstrap.Modal.getInstance(slotModalElement);
+          if (slotModal) slotModal.hide();
+        }
+        
+        // Reset state
+        this.selectedSlot = null;
+        this.slotToDelete = null;
+        
+        // Refresh slot grid
+        if (this.slotGrid) {
+          await this.slotGrid.refreshSlots();
+        }
+        
+      } else {
+        this.toastService.showError('Failed to delete slot');
+      }
+      
+    } catch (error) {
+      console.error('Error deleting slot:', error);
+      
+      if (error instanceof Error) {
+        // Show specific error message from backend
+        this.toastService.showError(`Failed to delete slot: ${error.message}`);
+      } else {
+        this.toastService.showError('Failed to delete slot');
+      }
+    } finally {
+      this.deletingSlot = false;
+    }
+  }
+
+  // Bulk delete functionality
+  onBulkDeleteRequested(slots: ParkingSlot[]): void {
+    this.bulkSlotsToDelete = slots;
+    
+    // Open bulk delete confirmation modal
+    const modalElement = document.getElementById('bulkDeleteConfirmationModal');
+    if (modalElement) {
+      const modal = new (window as any).bootstrap.Modal(modalElement);
+      modal.show();
+    }
+  }
+
+  async bulkDeleteSlots(): Promise<void> {
+    if (this.bulkSlotsToDelete.length === 0) return;
+
+    try {
+      this.deletingMultipleSlots = true;
+      console.log('🗑️ Bulk deleting slots:', this.bulkSlotsToDelete.map(s => s.slot_number));
+      
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+      
+      // Delete slots one by one
+      for (const slot of this.bulkSlotsToDelete) {
+        try {
+          const success = await this.slotService.deleteSlot(slot.id);
+          if (success) {
+            successCount++;
+          } else {
+            errorCount++;
+            errors.push(`${slot.slot_number}: Failed to delete`);
+          }
+        } catch (error) {
+          errorCount++;
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          errors.push(`${slot.slot_number}: ${errorMsg}`);
+        }
+      }
+      
+      // Show results
+      if (successCount > 0) {
+        this.toastService.showSuccess(`Successfully deleted ${successCount} slot${successCount !== 1 ? 's' : ''}`);
+      }
+      
+      if (errorCount > 0) {
+        this.toastService.showError(`Failed to delete ${errorCount} slot${errorCount !== 1 ? 's' : ''}`);
+        console.error('Bulk delete errors:', errors);
+      }
+      
+      // Close modal
+      const modalElement = document.getElementById('bulkDeleteConfirmationModal');
+      if (modalElement) {
+        const modal = (window as any).bootstrap.Modal.getInstance(modalElement);
+        if (modal) modal.hide();
+      }
+      
+      // Reset state
+      this.bulkSlotsToDelete = [];
+      
+      // Refresh slot grid
+      if (this.slotGrid) {
+        await this.slotGrid.refreshSlots();
+      }
+      
+    } catch (error) {
+      console.error('Error in bulk delete:', error);
+      this.toastService.showError('Failed to delete slots');
+    } finally {
+      this.deletingMultipleSlots = false;
     }
   }
 

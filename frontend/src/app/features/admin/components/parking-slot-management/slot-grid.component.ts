@@ -41,6 +41,24 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
               <i class="fas fa-plus me-1"></i>
               Add Slots
             </button>
+            
+            <!-- Bulk Selection Toggle -->
+            <button 
+              class="btn btn-outline-secondary btn-sm"
+              (click)="toggleBulkSelection()"
+              [class.active]="bulkSelectionMode">
+              <i class="fas fa-check-square me-1"></i>
+              {{ bulkSelectionMode ? 'Cancel' : 'Select Multiple' }}
+            </button>
+            
+            <!-- Bulk Delete Button -->
+            <button 
+              *ngIf="bulkSelectionMode && selectedSlots.size > 0"
+              class="btn btn-danger btn-sm"
+              (click)="bulkDeleteSelected()">
+              <i class="fas fa-trash me-1"></i>
+              Delete Selected ({{ selectedSlots.size }})
+            </button>
           </div>
         </div>
 
@@ -75,6 +93,20 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
                   Auto Refresh (30s)
                 </label>
               </div>
+              
+              <!-- Bulk Selection Controls -->
+              <div *ngIf="bulkSelectionMode" class="form-check me-3">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  id="selectAll"
+                  [(ngModel)]="selectAll"
+                  (ngModelChange)="toggleSelectAll()">
+                <label class="form-check-label" for="selectAll">
+                  Select All Inactive
+                </label>
+              </div>
+              
               <small class="text-muted" *ngIf="lastUpdated">
                 Last updated: {{ formatTime(lastUpdated) }}
               </small>
@@ -132,8 +164,19 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
               *ngFor="let slot of groupedSlots.carSlots; trackBy: trackBySlotId"
               class="slot-item car-slot"
               [class]="getSlotClass(slot)"
+              [class.selected]="bulkSelectionMode && selectedSlots.has(slot.id)"
               [title]="getSlotTooltip(slot)"
               (click)="onSlotClick(slot)">
+              
+              <!-- Selection Checkbox -->
+              <div *ngIf="bulkSelectionMode && (slot.status === 'inactive' || slot.status === 'INACTIVE')" 
+                   class="slot-checkbox">
+                <input 
+                  type="checkbox" 
+                  [checked]="selectedSlots.has(slot.id)"
+                  (click)="$event.stopPropagation()"
+                  (change)="toggleSlotSelection(slot, $event)">
+              </div>
               
               <div class="slot-number">{{ slot.slot_number }}</div>
             </div>
@@ -154,8 +197,19 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
               *ngFor="let slot of groupedSlots.bikeSlots; trackBy: trackBySlotId"
               class="slot-item bike-slot"
               [class]="getSlotClass(slot)"
+              [class.selected]="bulkSelectionMode && selectedSlots.has(slot.id)"
               [title]="getSlotTooltip(slot)"
               (click)="onSlotClick(slot)">
+              
+              <!-- Selection Checkbox -->
+              <div *ngIf="bulkSelectionMode && (slot.status === 'inactive' || slot.status === 'INACTIVE')" 
+                   class="slot-checkbox">
+                <input 
+                  type="checkbox" 
+                  [checked]="selectedSlots.has(slot.id)"
+                  (click)="$event.stopPropagation()"
+                  (change)="toggleSlotSelection(slot, $event)">
+              </div>
               
               <div class="slot-number">{{ slot.slot_number }}</div>
             </div>
@@ -313,6 +367,24 @@ import { LoadingStateComponent } from '../shared/loading-state.component';
       opacity: 0.8;
     }
 
+    .slot-item.selected {
+      border-color: #007bff !important;
+      background-color: #e3f2fd !important;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+
+    .slot-checkbox {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      z-index: 10;
+    }
+
+    .slot-checkbox input {
+      width: 12px;
+      height: 12px;
+    }
+
     .empty-state {
       background: #f8f9fa;
       border-radius: 8px;
@@ -382,6 +454,8 @@ export class SlotGridComponent implements OnInit, OnChanges {
   @Output() slotSelected = new EventEmitter<ParkingSlot>();
   @Output() addSlotsRequested = new EventEmitter<string>();
   @Output() slotsUpdated = new EventEmitter<ParkingSlot[]>();
+  @Output() slotDeleteRequested = new EventEmitter<ParkingSlot>();
+  @Output() bulkDeleteRequested = new EventEmitter<ParkingSlot[]>();
 
   // Data
   slots: ParkingSlot[] = [];
@@ -395,6 +469,11 @@ export class SlotGridComponent implements OnInit, OnChanges {
   selectedStatus: string = '';
   autoRefresh = false;
   lastUpdated?: Date;
+  
+  // Bulk selection
+  bulkSelectionMode = false;
+  selectedSlots: Set<string> = new Set();
+  selectAll = false;
 
   // Auto-refresh
   private autoRefreshInterval?: any;
@@ -492,8 +571,16 @@ export class SlotGridComponent implements OnInit, OnChanges {
   }
 
   onSlotClick(slot: ParkingSlot): void {
-    // Allow clicking on inactive slots for admin management
-    this.slotSelected.emit(slot);
+    if (this.bulkSelectionMode) {
+      // In bulk selection mode, toggle selection instead of opening details
+      if (slot.status === 'inactive' || slot.status === 'INACTIVE') {
+        const event = { target: { checked: !this.selectedSlots.has(slot.id) } };
+        this.toggleSlotSelection(slot, event);
+      }
+    } else {
+      // Normal mode - open slot details
+      this.slotSelected.emit(slot);
+    }
   }
 
   openAddSlotsModal(): void {
@@ -520,5 +607,46 @@ export class SlotGridComponent implements OnInit, OnChanges {
 
   trackBySlotId(index: number, slot: ParkingSlot): string {
     return slot.id;
+  }
+
+  // Bulk selection methods
+  toggleBulkSelection(): void {
+    this.bulkSelectionMode = !this.bulkSelectionMode;
+    if (!this.bulkSelectionMode) {
+      // Clear selections when exiting bulk mode
+      this.selectedSlots.clear();
+      this.selectAll = false;
+    }
+  }
+
+  toggleSlotSelection(slot: ParkingSlot, event: any): void {
+    if (event.target.checked) {
+      this.selectedSlots.add(slot.id);
+    } else {
+      this.selectedSlots.delete(slot.id);
+    }
+    
+    // Update select all checkbox
+    const inactiveSlots = this.filteredSlots.filter(s => s.status === 'inactive' || s.status === 'INACTIVE');
+    this.selectAll = inactiveSlots.length > 0 && inactiveSlots.every(s => this.selectedSlots.has(s.id));
+  }
+
+  toggleSelectAll(): void {
+    const inactiveSlots = this.filteredSlots.filter(s => s.status === 'inactive' || s.status === 'INACTIVE');
+    
+    if (this.selectAll) {
+      // Select all inactive slots
+      inactiveSlots.forEach(slot => this.selectedSlots.add(slot.id));
+    } else {
+      // Deselect all inactive slots
+      inactiveSlots.forEach(slot => this.selectedSlots.delete(slot.id));
+    }
+  }
+
+  bulkDeleteSelected(): void {
+    const slotsToDelete = this.filteredSlots.filter(slot => this.selectedSlots.has(slot.id));
+    if (slotsToDelete.length > 0) {
+      this.bulkDeleteRequested.emit(slotsToDelete);
+    }
   }
 }
