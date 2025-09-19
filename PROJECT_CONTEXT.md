@@ -31,10 +31,11 @@ Before any code changes, I MUST:
 4. ✅ **Basic functionality** - Core features of the phase should work
 5. ✅ **Integration tested** - New components integrate with existing code
 
-**VERIFICATION PROTOCOL AFTER EACH PHASE:**
+**VERIFICATION PROTOCOL AFTER EACH STEP:**
 ```bash
+# BACKEND VERIFICATION (Agent Responsibility):
 # 1. Comprehensive compilation testing
-python3 -m py_compile app/**/*.py
+find app -name "*.py" -exec python3 -m py_compile {} \;
 
 # 2. Import validation  
 python3 -c "import app.main; print('✅ App loads successfully')"
@@ -42,14 +43,48 @@ python3 -c "import app.main; print('✅ App loads successfully')"
 # 3. Syntax validation
 python3 -m ast app/**/*.py
 
-# 4. API endpoint testing (if applicable)
-# 5. Service integration verification
-# 6. Database connectivity check
+# 4. Docker logs verification
+docker logs backend-api-1 --tail 20
+docker logs backend-celery_worker-1 --tail 10
+
+# 5. Check for runtime errors in logs
+docker logs backend-api-1 --tail 50 | grep -E "(ERROR|CRITICAL|Exception|Traceback|AssertionError)"
+
+# FRONTEND VERIFICATION (Agent Responsibility):
+# 6. TypeScript compilation check
+cd frontend && npm run build
+
+# 7. Type safety verification
+cd frontend && npm run lint
+
+# 8. Frontend Docker logs (if applicable)
+docker logs frontend-container --tail 20
+
+# DOCKER INTEGRATION (Agent Responsibility):
+# 9. Container status verification
+docker ps
+
+# 10. Real-time error monitoring
+# Check logs after every code change for immediate feedback
+
+# RUNTIME VERIFICATION (User Responsibility):
+# 11. Health API testing
+# 12. Service integration verification  
+# 13. Database connectivity check
+# 14. API endpoint testing
 ```
 
 **COMMITMENT:** Every phase must be fully functional with zero errors before proceeding to next phase. This accelerates development, reduces technical debt, improves code quality, and enables faster iteration.
 
-**RECENT FIX EXAMPLE:** Fixed `AllocationResult` import error in `BookingService` immediately upon detection in Phase 2.2.2.
+**DOCKER LOGS INTEGRATION - NEW PROTOCOL:**
+- **Container Status:** `docker ps` - Verify all containers are healthy  
+- **API Server Logs:** `docker logs backend-api-1 --tail 20` - Check FastAPI runtime
+- **Worker Logs:** `docker logs backend-celery_worker-1 --tail 10` - Check Celery status
+- **Error Detection:** Filter logs for ERROR, CRITICAL, Exception, Traceback patterns
+- **Real-time Monitoring:** Check logs after every code change for immediate feedback
+- **Integration:** Docker logs now mandatory part of every implementation step verification
+
+**RECENT FIX EXAMPLE:** Fixed multiple FastAPI `Query`/`Path` parameter errors and verified via Docker logs in Phase 3 completion.
 
 ---
 
