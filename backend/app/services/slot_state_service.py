@@ -14,6 +14,8 @@ from app.models.parking import ParkingSlot, SlotStatus
 from app.repositories.parking import ParkingSlotRepository
 from app.services.base import BaseService
 from app.core.exceptions import ValidationError, NotFoundError, BusinessLogicError
+from app.events.domain_events import DomainEventFactory
+from app.events.event_publisher import event_publisher
 
 logger = structlog.get_logger(__name__)
 
@@ -102,12 +104,21 @@ class SlotStateService(BaseService):
             )
             
             if success:
+                # Get previous state for event
+                transition_info = state_machine.get_transition_info(event)
+                old_state = transition_info.from_state if transition_info else None
+                
                 # Update database
                 await self._update_slot_status_in_db(slot_id, state_machine.current_state)
                 
+                # Publish domain event for state change
+                await self._publish_state_change_event(
+                    slot_id, old_state, state_machine.current_state, context
+                )
+                
                 # Execute side effects
                 await self._execute_side_effects(
-                    slot_id, event, state_machine.get_transition_info(event), context
+                    slot_id, event, transition_info, context
                 )
             
             return success
@@ -542,8 +553,57 @@ class SlotStateService(BaseService):
             pass
         # Add more side effects as needed
         
-        self.logger.debug(
-            "Executed side effect",
-            slot_id=slot_id,
-            side_effect=side_effect
-        )
+            self.logger.debug(
+                "Executed side effect",
+                slot_id=slot_id,
+                side_effect=side_effect
+            )
+    
+    async def _publish_state_change_event(
+        self,
+        slot_id: UUID,
+        old_state: Optional[SlotStatus],
+        new_state: SlotStatus,
+        context: Optional[Dict[str, Any]]
+    ) -> None:
+        """Publish domain event for slot state change."""
+        try:
+            # Get slot information
+            slot = await self.slot_repository.get_by_id(slot_id)
+            if not slot:
+                return
+            
+            # Create state change event
+            event = DomainEventFactory.slot_status_changed(
+                slot_id=slot_id,
+                lot_id=slot.lot_id,
+                old_status=old_state.value if old_state else "unknown",
+                new_status=new_state.value,
+                booking_id=UUID(context.get("booking_id")) if context and context.get("booking_id") else None
+            )
+            
+            # Add additional context
+            if context:
+                event.data.metadata.update({
+                    "triggered_by": context.get("triggered_by", "system"),
+                    "operation": context.get("operation", "state_change"),
+                    "transition_time": datetime.now(timezone.utc).isoformat()
+                })
+            
+            # Publish event
+            await event_publisher.publish(event)
+            
+            self.logger.info(
+                "Slot state change event published",
+                slot_id=slot_id,
+                old_state=old_state.value if old_state else "unknown",
+                new_state=new_state.value,
+                event_id=event.event_id
+            )
+            
+        except Exception as e:
+            self.logger.error(
+                "Failed to publish state change event",
+                slot_id=slot_id,
+                error=str(e)
+            )

@@ -11,10 +11,13 @@ from app.repositories.booking import BookingRepository, SlotAllocationRepository
 from app.repositories.parking import ParkingLotRepository, ParkingSlotRepository
 from app.repositories.user import UserRepository
 from app.services.pricing import PricingService
-from app.services.slot_allocation import OptimizedSlotAllocator, AllocationStrategy, SlotAllocationRequest
+from app.services.slot_allocation import OptimizedSlotAllocator, AllocationStrategy, SlotAllocationRequest, AllocationResult
 from app.services.slot_state_service import SlotStateService
 from app.services.conflict_resolution import ConflictResolutionService, ConflictType, ConflictSeverity
+from app.services.realtime_availability import RealTimeAvailabilityService
 from app.models.slot_state_machine import SlotEvent
+from app.events.domain_events import DomainEventFactory
+from app.events.event_publisher import event_publisher
 from app.core.config import settings
 from app.core.locks import slot_lock_manager, LockAcquisitionError
 from app.core.exceptions import (
@@ -49,6 +52,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         self.pricing_service = PricingService(session)
         self.slot_state_service = SlotStateService(session)
         self.conflict_resolution_service = ConflictResolutionService(session)
+        self.realtime_availability_service = RealTimeAvailabilityService(session)
         
         super().__init__(self.booking_repository)
         TransactionalService.__init__(self, session)
@@ -128,6 +132,22 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                         end_time=end_time
                     )
                     
+                    # Publish domain events
+                    await self._publish_booking_events(booking, allocation_result)
+                    
+                    # Trigger real-time availability update
+                    await self.realtime_availability_service.notify_availability_change(
+                        lot_id=lot_id,
+                        vehicle_type=vehicle_type,
+                        change_type="booking_created",
+                        metadata={
+                            "booking_id": str(booking.id),
+                            "user_id": str(user_id),
+                            "slot_id": str(allocation_result.slot.id),
+                            "allocation_type": allocation_result.allocation_type.value
+                        }
+                    )
+                    
                     self.logger.info(
                         "Atomic booking created successfully",
                         booking_id=booking.id,
@@ -195,6 +215,22 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                     
                     # Atomically release slot allocations
                     await self._release_slot_allocations_atomically(booking_id)
+                    
+                    # Publish domain events
+                    await self._publish_booking_cancellation_events(current_booking, "user_cancelled")
+                    
+                    # Trigger real-time availability update
+                    await self.realtime_availability_service.notify_availability_change(
+                        lot_id=current_booking.lot_id,
+                        vehicle_type=VehicleType(current_booking.vehicle_type),
+                        change_type="booking_cancelled",
+                        metadata={
+                            "booking_id": str(booking_id),
+                            "user_id": str(user_id),
+                            "slot_id": str(current_booking.slot_id),
+                            "cancellation_reason": "user_cancelled"
+                        }
+                    )
                     
                     self.logger.info(
                         "Booking cancelled atomically", 
@@ -719,6 +755,81 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                     description=conflict.description,
                     slot_id=allocation_result.slot.id
                 )
+    
+    async def _publish_booking_events(self, booking: "Booking", allocation_result: Any) -> None:
+        """Publish domain events for booking creation."""
+        try:
+            # Create booking created event
+            event = DomainEventFactory.booking_created(
+                booking_id=booking.id,
+                user_id=booking.user_id,
+                lot_id=booking.lot_id,
+                slot_id=booking.slot_id,
+                start_time=booking.start_time,
+                end_time=booking.end_time,
+                vehicle_type=booking.vehicle_type,
+                total_amount=float(booking.total_amount)
+            )
+            
+            # Add allocation details
+            event.data.metadata.update({
+                "allocation_type": allocation_result.allocation_type.value,
+                "space_designation": allocation_result.space_designation,
+                "confidence_score": allocation_result.confidence_score,
+                "booking_reference": booking.booking_reference
+            })
+            
+            # Publish event
+            await event_publisher.publish(event)
+            
+            self.logger.debug(
+                "Booking creation events published",
+                booking_id=booking.id,
+                event_id=event.event_id
+            )
+            
+        except Exception as e:
+            self.logger.error(
+                "Failed to publish booking events",
+                booking_id=booking.id,
+                error=str(e)
+            )
+    
+    async def _publish_booking_cancellation_events(self, booking: "Booking", reason: str) -> None:
+        """Publish domain events for booking cancellation."""
+        try:
+            # Create booking cancelled event
+            event = DomainEventFactory.booking_cancelled(
+                booking_id=booking.id,
+                user_id=booking.user_id,
+                lot_id=booking.lot_id,
+                slot_id=booking.slot_id,
+                reason=reason
+            )
+            
+            # Add cancellation details
+            event.data.metadata.update({
+                "original_amount": float(booking.total_amount),
+                "booking_reference": booking.booking_reference,
+                "vehicle_type": booking.vehicle_type
+            })
+            
+            # Publish event
+            await event_publisher.publish(event)
+            
+            self.logger.debug(
+                "Booking cancellation events published",
+                booking_id=booking.id,
+                event_id=event.event_id,
+                reason=reason
+            )
+            
+        except Exception as e:
+            self.logger.error(
+                "Failed to publish booking cancellation events",
+                booking_id=booking.id,
+                error=str(e)
+            )
     
     async def _find_available_slot(
         self,

@@ -10,6 +10,8 @@ from app.services.base import BaseService
 from app.repositories.parking import ParkingLotRepository, ParkingSlotRepository
 from app.models.parking import ParkingLot, ParkingSlot, VehicleType, SlotStatus
 from app.core.exceptions import ValidationError, NotFoundError, BusinessLogicError
+from app.events.domain_events import DomainEventFactory
+from app.events.event_publisher import event_publisher
 import structlog
 
 logger = structlog.get_logger(__name__)

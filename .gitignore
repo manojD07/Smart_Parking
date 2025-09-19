@@ -69,6 +69,9 @@ env/
 # Documentation build
 docs/_build/
 
+# Project context file (contains implementation details)
+PROJECT_CONTEXT.md
+
 # Package files
 *.dmg
 *.pkg

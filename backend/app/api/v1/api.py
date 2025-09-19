@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, users, parking, bookings, admin, payments, pricing, conflict_resolution
+from app.api.v1.endpoints import auth, users, parking, bookings, admin, payments, pricing, conflict_resolution, realtime_availability
 
 api_router = APIRouter()
 
@@ -14,3 +14,4 @@ api_router.include_router(payments.router, prefix="/payments", tags=["Payments"]
 api_router.include_router(pricing.router, prefix="/pricing", tags=["Pricing"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Administration"])
 api_router.include_router(conflict_resolution.router, prefix="/conflicts", tags=["Conflict Resolution"])
+api_router.include_router(realtime_availability.router, prefix="/realtime", tags=["Real-time Availability"])
