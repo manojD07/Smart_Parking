@@ -229,17 +229,27 @@ class ParkingSlot(BaseModel):
         """Get vehicle type as enum."""
         return VehicleType(self.slot_type)
     
-    def can_accommodate_bikes(self) -> int:
-        """Return how many bikes this slot can accommodate."""
-        if self.slot_type == VehicleType.CAR.value and self.is_available:
-            # Car slot can accommodate 2 bikes
-            current_bikes = self.slot_allocations.filter(
-                SlotAllocation.allocation_type == "partial"
-            ).count()
-            return max(0, 2 - current_bikes)
-        elif self.slot_type == VehicleType.BIKE.value and self.is_available:
-            return 1
-        return 0
+    def can_accommodate_bikes(self, existing_bike_count: int = 0) -> int:
+        """
+        Return how many bikes this slot can accommodate.
+        
+        Args:
+            existing_bike_count: Number of bikes already allocated (from repository)
+            
+        Returns:
+            Number of additional bikes that can be accommodated
+        """
+        if not self.is_available:
+            return 0
+        
+        if self.slot_type == VehicleType.CAR.value:
+            # Car slot can accommodate 2 bikes total
+            return max(0, 2 - existing_bike_count)
+        elif self.slot_type == VehicleType.BIKE.value:
+            # Dedicated bike slot can accommodate 1 bike if empty
+            return 1 if existing_bike_count == 0 else 0
+        
+        return 0  # Other vehicle types cannot accommodate bikes
     
     def mark_occupied(self) -> None:
         """Mark slot as occupied."""

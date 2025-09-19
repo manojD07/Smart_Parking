@@ -325,6 +325,59 @@ class SlotAllocation(BaseModel):
         """Check if this is a partial slot allocation."""
         return self.allocation_type == AllocationType.PARTIAL.value
     
+    @property
+    def is_bike_in_car_slot(self) -> bool:
+        """Check if this is a bike allocated to a car slot."""
+        return (
+            self.is_partial_allocation and
+            self.booking and
+            self.booking.vehicle_type == "bike" and
+            self.slot and
+            self.slot.slot_type == "car"
+        )
+    
+    @property
+    def space_designation_display(self) -> str:
+        """Get human-readable space designation."""
+        if not self.allocated_space:
+            return "Full slot"
+        
+        space_map = {
+            "left_half": "Left Half",
+            "right_half": "Right Half",
+            "front_half": "Front Half", 
+            "back_half": "Back Half"
+        }
+        return space_map.get(self.allocated_space, self.allocated_space.replace("_", " ").title())
+    
+    def get_companion_space(self) -> Optional[str]:
+        """Get the companion space designation for this allocation."""
+        if not self.allocated_space:
+            return None
+        
+        companion_map = {
+            "left_half": "right_half",
+            "right_half": "left_half",
+            "front_half": "back_half",
+            "back_half": "front_half"
+        }
+        return companion_map.get(self.allocated_space)
+    
+    def can_share_slot_with(self, other_vehicle_type: str) -> bool:
+        """Check if this allocation can share slot with another vehicle."""
+        if self.allocation_type == AllocationType.FULL.value:
+            return False
+        
+        # Only bikes can share car slots
+        return (
+            self.booking and
+            self.booking.vehicle_type == "bike" and
+            other_vehicle_type == "bike" and
+            self.slot and
+            self.slot.slot_type == "car"
+        )
+    
     def __str__(self) -> str:
         """String representation."""
-        return f"Allocation {self.allocation_type} for booking {self.booking.booking_reference}"
+        space_info = f" ({self.space_designation_display})" if self.allocated_space else ""
+        return f"Allocation {self.allocation_type}{space_info} for booking {self.booking.booking_reference if self.booking else 'Unknown'}"

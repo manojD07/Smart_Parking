@@ -11,7 +11,12 @@ from app.repositories.booking import BookingRepository, SlotAllocationRepository
 from app.repositories.parking import ParkingLotRepository, ParkingSlotRepository
 from app.repositories.user import UserRepository
 from app.services.pricing import PricingService
+from app.services.slot_allocation import OptimizedSlotAllocator, AllocationStrategy, SlotAllocationRequest
+from app.services.slot_state_service import SlotStateService
+from app.services.conflict_resolution import ConflictResolutionService, ConflictType, ConflictSeverity
+from app.models.slot_state_machine import SlotEvent
 from app.core.config import settings
+from app.core.locks import slot_lock_manager, LockAcquisitionError
 from app.core.exceptions import (
     ValidationError,
     NotFoundError,
@@ -42,6 +47,8 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         self.parking_slot_repository = ParkingSlotRepository(session)
         self.user_repository = UserRepository(session)
         self.pricing_service = PricingService(session)
+        self.slot_state_service = SlotStateService(session)
+        self.conflict_resolution_service = ConflictResolutionService(session)
         
         super().__init__(self.booking_repository)
         TransactionalService.__init__(self, session)
@@ -57,7 +64,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         start_time: datetime,
         end_time: datetime
     ) -> Booking:
-        """Create a new parking booking."""
+        """Create a new parking booking with atomic slot allocation."""
         try:
             # Ensure datetimes are timezone-aware in UTC before processing
             if start_time.tzinfo is None:
@@ -65,121 +72,147 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
             if end_time.tzinfo is None:
                 end_time = end_time.replace(tzinfo=timezone.utc)
                 
-            async def _create_booking_operation():
-                # Validate booking data
-                await self._validate_booking_request(
-                    user_id, lot_id, vehicle_type, vehicle_number, start_time, end_time
-                )
+            # Use distributed locks to prevent race conditions
+            async with slot_lock_manager.lock_booking_creation(
+                user_id=str(user_id), 
+                lot_id=str(lot_id)
+            ) as booking_lock:
                 
-                # Find available slot
-                slot = await self._find_available_slot(lot_id, vehicle_type, start_time, end_time)
-                if not slot:
-                    raise InsufficientSlotsError("No available slots for the requested time")
+                async def _create_booking_operation():
+                    # Validate booking data
+                    await self._validate_booking_request(
+                        user_id, lot_id, vehicle_type, vehicle_number, start_time, end_time
+                    )
+                    
+                    # Use advanced slot allocation with atomic operations
+                    allocation_result = await self._allocate_slot_atomically(
+                        user_id, lot_id, vehicle_type, start_time, end_time
+                    )
+                    
+                    # Calculate pricing
+                    pricing_info = await self.pricing_service.calculate_booking_price(
+                        lot_id, vehicle_type, start_time, end_time
+                    )
+                    
+                    # Generate booking reference
+                    booking_reference = await self._generate_unique_booking_reference()
+                    
+                    # Create booking with slot assignment
+                    booking = await self.booking_repository.create(
+                        user_id=user_id,
+                        lot_id=lot_id,
+                        slot_id=allocation_result.slot.id,
+                        vehicle_type=vehicle_type.value,
+                        vehicle_number=vehicle_number.upper().strip(),
+                        start_time=start_time,
+                        end_time=end_time,
+                        total_amount=pricing_info["total_amount"],
+                        booking_reference=booking_reference,
+                        status=BookingStatus.PENDING.value
+                    )
+                    
+                    # Create slot allocation with proper space designation
+                    await self.slot_allocation_repository.create_allocation(
+                        booking_id=booking.id,
+                        slot_id=allocation_result.slot.id,
+                        allocation_type=allocation_result.allocation_type,
+                        allocated_space=allocation_result.space_designation
+                    )
+                    
+                    # Use state machine to transition slot to reserved state
+                    await self.slot_state_service.reserve_slot(
+                        slot_id=allocation_result.slot.id,
+                        booking_id=booking.id,
+                        user_id=user_id,
+                        start_time=start_time,
+                        end_time=end_time
+                    )
+                    
+                    self.logger.info(
+                        "Atomic booking created successfully",
+                        booking_id=booking.id,
+                        user_id=user_id,
+                        slot_id=allocation_result.slot.id,
+                        slot_number=allocation_result.slot.slot_number,
+                        vehicle_type=vehicle_type.value,
+                        allocation_type=allocation_result.allocation_type.value,
+                        space_designation=allocation_result.space_designation,
+                        confidence_score=allocation_result.confidence_score
+                    )
+                    
+                    return booking
                 
-                # Calculate pricing
-                pricing_info = await self.pricing_service.calculate_booking_price(
-                    lot_id, vehicle_type, start_time, end_time
-                )
+                return await self.execute_in_transaction(_create_booking_operation)
                 
-                # Generate booking reference
-                booking_reference = await self._generate_unique_booking_reference()
-                
-                # Create booking with slot assignment
-                booking = await self.booking_repository.create(
-                    user_id=user_id,
-                    lot_id=lot_id,
-                    slot_id=slot.id,
-                    vehicle_type=vehicle_type.value,
-                    vehicle_number=vehicle_number.upper().strip(),
-                    start_time=start_time,
-                    end_time=end_time,
-                    total_amount=pricing_info["total_amount"],
-                    booking_reference=booking_reference,
-                    status=BookingStatus.PENDING.value
-                )
-                
-                # Create slot allocation
-                allocation_type = AllocationType.FULL
-                allocated_space = None
-                
-                # Handle bike allocation in car slot
-                if vehicle_type == VehicleType.BIKE and slot.slot_type == VehicleType.CAR.value:
-                    allocation_type = AllocationType.PARTIAL
-                    allocated_space = await self._determine_bike_space_in_car_slot(slot.id, start_time, end_time)
-                
-                await self.slot_allocation_repository.create_allocation(
-                    booking_id=booking.id,
-                    slot_id=slot.id,
-                    allocation_type=allocation_type,
-                    allocated_space=allocated_space
-                )
-                
-                # Update slot status
-                if allocation_type == AllocationType.FULL:
-                    slot.mark_reserved()
-                
-                self.logger.info(
-                    "Booking created successfully",
-                    booking_id=booking.id,
-                    user_id=user_id,
-                    slot_id=slot.id,
-                    slot_number=slot.slot_number,
-                    vehicle_type=vehicle_type.value
-                )
-                
-                return booking
-            
-            return await self.execute_in_transaction(_create_booking_operation)
-            
+        except LockAcquisitionError as e:
+            self.logger.warning("Failed to acquire booking lock", user_id=user_id, error=str(e))
+            raise BookingConflictError("Too many concurrent booking attempts. Please try again.")
         except (ValidationError, InsufficientSlotsError, BusinessLogicError):
             raise
         except Exception as e:
-            self.logger.error("Failed to create booking", user_id=user_id, error=str(e))
+            self.logger.error("Failed to create atomic booking", user_id=user_id, error=str(e))
             raise BusinessLogicError("Failed to create booking")
     
     async def cancel_booking(self, booking_id: UUID, user_id: UUID) -> bool:
-        """Cancel a booking."""
+        """Cancel a booking with atomic slot release operations."""
         try:
-            async def _cancel_booking_operation():
-                # Get booking
-                booking = await self.booking_repository.get_by_id(booking_id, load_relationships=True)
-                if not booking:
-                    raise NotFoundError("Booking not found")
-                
-                # Verify user owns the booking
-                if booking.user_id != user_id:
-                    raise ValidationError("You can only cancel your own bookings")
-                
-                # Check if booking can be cancelled
-                if not booking.can_cancel():
-                    raise BookingNotCancellableError("Booking cannot be cancelled at this time")
-                
-                # Cancel booking
-                booking.cancel()
-                
-                # Release slot allocations
-                allocations = await self.slot_allocation_repository.get_by_booking(booking_id)
-                for allocation in allocations:
-                    if allocation.slot:
-                        if allocation.allocation_type == AllocationType.FULL.value:
-                            allocation.slot.mark_available()
-                        # For partial allocations, check if slot can be marked available
-                        elif allocation.allocation_type == AllocationType.PARTIAL.value:
-                            remaining_allocations = await self._count_active_allocations_for_slot(
-                                allocation.slot_id, exclude_booking_id=booking_id
-                            )
-                            if remaining_allocations == 0:
-                                allocation.slot.mark_available()
-                
-                self.logger.info("Booking cancelled successfully", booking_id=booking_id, user_id=user_id)
-                return True
+            # Get booking first to determine which slots to lock
+            booking = await self.booking_repository.get_by_id(booking_id, load_relationships=True)
+            if not booking:
+                raise NotFoundError("Booking not found")
             
-            return await self.execute_in_transaction(_cancel_booking_operation)
+            # Verify user owns the booking
+            if booking.user_id != user_id:
+                raise ValidationError("You can only cancel your own bookings")
             
+            # Use slot allocation lock to prevent conflicts during cancellation
+            async with slot_lock_manager.lock_slot_allocation(
+                slot_id=str(booking.slot_id) if booking.slot_id else "unknown",
+                user_id=str(user_id),
+                operation="cancel"
+            ):
+                
+                async def _cancel_booking_operation():
+                    # Re-fetch booking within transaction to ensure latest state
+                    current_booking = await self.booking_repository.get_by_id(booking_id, load_relationships=True)
+                    if not current_booking:
+                        raise NotFoundError("Booking not found")
+                    
+                    # Check if booking can be cancelled
+                    if not current_booking.can_cancel():
+                        raise BookingNotCancellableError("Booking cannot be cancelled at this time")
+                    
+                    # Cancel booking
+                    current_booking.cancel()
+                    
+                    # Use state machine to release slot
+                    if current_booking.slot_id:
+                        await self.slot_state_service.release_slot(
+                            slot_id=current_booking.slot_id,
+                            booking_id=booking_id,
+                            reason="booking_cancelled"
+                        )
+                    
+                    # Atomically release slot allocations
+                    await self._release_slot_allocations_atomically(booking_id)
+                    
+                    self.logger.info(
+                        "Booking cancelled atomically", 
+                        booking_id=booking_id, 
+                        user_id=user_id,
+                        slot_id=current_booking.slot_id
+                    )
+                    return True
+                
+                return await self.execute_in_transaction(_cancel_booking_operation)
+                
+        except LockAcquisitionError as e:
+            self.logger.warning("Failed to acquire cancellation lock", booking_id=booking_id, error=str(e))
+            raise BookingConflictError("Booking is currently being processed. Please try again.")
         except (NotFoundError, ValidationError, BookingNotCancellableError):
             raise
         except Exception as e:
-            self.logger.error("Failed to cancel booking", booking_id=booking_id, error=str(e))
+            self.logger.error("Failed to cancel booking atomically", booking_id=booking_id, error=str(e))
             raise BusinessLogicError("Failed to cancel booking")
     
     async def check_in_booking(self, booking_id: UUID, user_id: UUID, is_admin: bool = False) -> bool:
@@ -197,6 +230,13 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                 if not booking.can_check_in:
                     raise BusinessLogicError("Cannot check in at this time")
                 
+                # Use state machine to transition slot to occupied
+                if booking.slot_id:
+                    await self.slot_state_service.occupy_slot(
+                        slot_id=booking.slot_id,
+                        booking_id=booking.id,
+                        user_id=user_id if not is_admin else booking.user_id
+                    )
                 
                 booking.check_in()
                 
@@ -224,6 +264,14 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                 
                 if not booking.can_check_out:
                     raise BusinessLogicError("Cannot check out at this time")
+                
+                # Use state machine to transition slot to available
+                if booking.slot_id:
+                    await self.slot_state_service.vacate_slot(
+                        slot_id=booking.slot_id,
+                        booking_id=booking.id,
+                        user_id=user_id
+                    )
                 
                 booking.check_out()
                 
@@ -496,6 +544,182 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         if not vehicle_number or len(vehicle_number.strip()) < 3:
             raise ValidationError("Valid vehicle number is required")
     
+    async def _allocate_slot_atomically(
+        self,
+        user_id: UUID,
+        lot_id: UUID,
+        vehicle_type: VehicleType,
+        start_time: datetime,
+        end_time: datetime
+    ) -> AllocationResult:
+        """
+        Allocate slot using the advanced allocation engine with atomic operations and conflict resolution.
+        
+        Returns:
+            AllocationResult with slot, allocation type, and space designation
+            
+        Raises:
+            InsufficientSlotsError: No available slots found
+            BookingConflictError: Conflicts detected that cannot be resolved
+        """
+        try:
+            # Create slot allocator with optimal strategy
+            allocator = OptimizedSlotAllocator(
+                session=self.session,
+                strategy=AllocationStrategy.OPTIMAL
+            )
+            
+            # Create allocation request
+            request = SlotAllocationRequest(
+                vehicle_type=vehicle_type,
+                start_time=start_time,
+                end_time=end_time,
+                priority_level=0,  # Default priority
+                user_preferences=None,  # TODO: Add user preferences support
+                user_id=user_id
+            )
+            
+            # First attempt: Get initial allocation
+            allocation_result = None
+            
+            # For bike allocations to car slots, use additional locking
+            if vehicle_type == VehicleType.BIKE:
+                # Get potential car slots that might be used
+                potential_slots = await self.parking_slot_repository.get_available_slots(
+                    lot_id, vehicle_type, start_time, end_time, limit=10
+                )
+                
+                car_slots = [s for s in potential_slots if s.slot_type == VehicleType.CAR.value]
+                
+                if car_slots:
+                    # Use car slot bike lock for the most likely candidate
+                    primary_slot = car_slots[0]
+                    async with slot_lock_manager.lock_car_slot_for_bikes(
+                        slot_id=str(primary_slot.id),
+                        user_id=str(user_id)
+                    ):
+                        allocation_result = await allocator.allocate_slot(request, lot_id)
+                        
+                        # Validate allocation with conflict detection
+                        is_valid, conflicts, resolution_result = await self.conflict_resolution_service.validate_booking_atomically(
+                            slot_id=allocation_result.slot.id,
+                            user_id=user_id,
+                            vehicle_type=vehicle_type.value,
+                            start_time=start_time,
+                            end_time=end_time
+                        )
+                        
+                        if not is_valid:
+                            await self._handle_allocation_conflicts(conflicts, resolution_result, allocation_result)
+                        
+                        return allocation_result
+            
+            # For car allocations or bike allocations to bike slots
+            allocation_result = await allocator.allocate_slot(request, lot_id)
+            
+            # Validate allocation with conflict detection
+            is_valid, conflicts, resolution_result = await self.conflict_resolution_service.validate_booking_atomically(
+                slot_id=allocation_result.slot.id,
+                user_id=user_id,
+                vehicle_type=vehicle_type.value,
+                start_time=start_time,
+                end_time=end_time
+            )
+            
+            if not is_valid:
+                await self._handle_allocation_conflicts(conflicts, resolution_result, allocation_result)
+            
+            self.logger.info(
+                "Slot allocated atomically with conflict validation",
+                slot_id=allocation_result.slot.id,
+                allocation_type=allocation_result.allocation_type.value,
+                conflicts_detected=len(conflicts) if conflicts else 0
+            )
+            
+            return allocation_result
+            
+        except InsufficientSlotsError:
+            raise
+        except BookingConflictError:
+            raise
+        except Exception as e:
+            self.logger.error("Failed to allocate slot atomically", error=str(e))
+            raise BusinessLogicError("Failed to allocate slot")
+    
+    async def _handle_allocation_conflicts(
+        self,
+        conflicts: List[Any],
+        resolution_result: Optional[Any],
+        allocation_result: Any
+    ) -> None:
+        """
+        Handle allocation conflicts by analyzing severity and throwing appropriate exceptions.
+        
+        Args:
+            conflicts: List of detected conflicts
+            resolution_result: Result of conflict resolution attempt
+            allocation_result: The allocation that has conflicts
+            
+        Raises:
+            BookingConflictError: When conflicts cannot be resolved
+        """
+        if not conflicts:
+            return
+        
+        # Check for critical conflicts
+        critical_conflicts = [c for c in conflicts if c.severity == ConflictSeverity.CRITICAL]
+        
+        if critical_conflicts:
+            critical_descriptions = [c.description for c in critical_conflicts]
+            raise BookingConflictError(
+                f"Critical booking conflicts detected: {'; '.join(critical_descriptions)}",
+                details={
+                    "slot_id": str(allocation_result.slot.id),
+                    "conflicts": [
+                        {
+                            "type": c.conflict_type.value,
+                            "severity": c.severity.value,
+                            "description": c.description
+                        }
+                        for c in critical_conflicts
+                    ],
+                    "resolution_suggestions": resolution_result.alternative_suggestions if resolution_result else []
+                }
+            )
+        
+        # Check if resolution was attempted but failed
+        if resolution_result and not resolution_result.success:
+            conflict_descriptions = [c.description for c in conflicts]
+            raise BookingConflictError(
+                f"Booking conflicts could not be resolved: {'; '.join(conflict_descriptions)}",
+                details={
+                    "slot_id": str(allocation_result.slot.id),
+                    "resolution_attempted": resolution_result.strategy_used.value,
+                    "conflicts": [
+                        {
+                            "type": c.conflict_type.value,
+                            "severity": c.severity.value,
+                            "description": c.description
+                        }
+                        for c in conflicts
+                    ],
+                    "alternative_suggestions": resolution_result.alternative_suggestions,
+                    "warnings": resolution_result.warnings,
+                    "next_steps": resolution_result.next_steps
+                }
+            )
+        
+        # Log non-critical conflicts as warnings
+        for conflict in conflicts:
+            if conflict.severity != ConflictSeverity.CRITICAL:
+                self.logger.warning(
+                    "Non-critical booking conflict detected",
+                    conflict_type=conflict.conflict_type.value,
+                    severity=conflict.severity.value,
+                    description=conflict.description,
+                    slot_id=allocation_result.slot.id
+                )
+    
     async def _find_available_slot(
         self,
         lot_id: UUID,
@@ -503,7 +727,11 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         start_time: datetime,
         end_time: datetime
     ) -> Optional[ParkingSlot]:
-        """Find an available slot for booking."""
+        """
+        Find an available slot for booking (legacy method).
+        
+        Note: This method is deprecated in favor of _allocate_slot_atomically
+        """
         try:
             available_slots = await self.parking_slot_repository.get_available_slots(
                 lot_id, vehicle_type, start_time, end_time, limit=1
@@ -556,16 +784,75 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
             raise BusinessLogicError("Car slot is already fully occupied by bikes")
     
 
+    async def _release_slot_allocations_atomically(self, booking_id: UUID) -> None:
+        """
+        Atomically release slot allocations for a booking.
+        
+        Handles both full and partial allocations correctly.
+        """
+        try:
+            # Get all allocations for this booking
+            allocations = await self.slot_allocation_repository.get_allocations_by_booking(booking_id)
+            
+            for allocation in allocations:
+                if allocation.slot:
+                    if allocation.allocation_type == AllocationType.FULL.value:
+                        # Full allocation - mark slot as available
+                        allocation.slot.mark_available()
+                        self.logger.debug(
+                            "Released full slot allocation",
+                            slot_id=allocation.slot_id,
+                            slot_number=allocation.slot.slot_number
+                        )
+                    elif allocation.allocation_type == AllocationType.PARTIAL.value:
+                        # Partial allocation (bike in car slot) - check remaining allocations
+                        remaining_bikes = await self.slot_allocation_repository.count_bikes_in_car_slot(
+                            allocation.slot_id,
+                            datetime.now(timezone.utc) - timedelta(hours=1),  # Small window
+                            datetime.now(timezone.utc) + timedelta(hours=24)   # Look ahead
+                        )
+                        
+                        # If this was the last bike, mark slot as available
+                        if remaining_bikes <= 1:  # <= 1 because current booking is being cancelled
+                            allocation.slot.mark_available()
+                            self.logger.debug(
+                                "Released car slot after last bike removed",
+                                slot_id=allocation.slot_id,
+                                slot_number=allocation.slot.slot_number
+                            )
+                        else:
+                            self.logger.debug(
+                                "Car slot still has other bikes",
+                                slot_id=allocation.slot_id,
+                                remaining_bikes=remaining_bikes - 1
+                            )
+            
+            # Delete the allocation records
+            deleted_count = await self.slot_allocation_repository.delete_allocations_by_booking(booking_id)
+            
+            self.logger.info(
+                "Released slot allocations atomically",
+                booking_id=booking_id,
+                allocations_deleted=deleted_count
+            )
+            
+        except Exception as e:
+            self.logger.error("Failed to release slot allocations", booking_id=booking_id, error=str(e))
+            raise
+    
     async def _count_active_allocations_for_slot(
         self,
         slot_id: UUID,
         exclude_booking_id: Optional[UUID] = None
     ) -> int:
-        """Count active allocations for a slot."""
+        """Count active allocations for a slot (legacy method)."""
         try:
-            # This would need to be implemented in the repository
-            # For now, returning 0 as placeholder
-            return 0
+            # Use the new repository method
+            return await self.slot_allocation_repository.count_bikes_in_car_slot(
+                slot_id,
+                datetime.now(timezone.utc) - timedelta(hours=1),
+                datetime.now(timezone.utc) + timedelta(hours=24)
+            )
             
         except Exception as e:
             self.logger.error("Failed to count allocations", slot_id=slot_id, error=str(e))
