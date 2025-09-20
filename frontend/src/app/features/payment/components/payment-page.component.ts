@@ -181,10 +181,49 @@ export class PaymentPageComponent implements OnInit, OnDestroy {
   }
 
   private loadBookingDetails(): void {
+    // Check if we have state data from booking form navigation
+    const navigationState = this.router.getCurrentNavigation()?.extras?.state || 
+                           window.history.state;
+    
+    if (navigationState && navigationState.bookingData) {
+      // Use state data from booking form
+      const bookingData = navigationState.bookingData;
+      console.log('🔍 Payment page booking data:', bookingData);
+      
+      // Calculate proper start and end times
+      const now = new Date();
+      const startTime = now.toISOString();
+      const durationMinutes = bookingData.duration || 60; // Default to 60 minutes if not provided
+      const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000).toISOString();
+      
+      this.booking = {
+        id: 'temp-' + Date.now(), // Temporary ID
+        booking_reference: 'TEMP-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        lot: { name: bookingData.lotName },
+        vehicle_type: bookingData.vehicleType,
+        vehicle_number: bookingData.vehicleNumber,
+        start_time: startTime,
+        end_time: endTime,
+        // duration_hours: durationMinutes / 60, // Not part of Booking interface
+        total_amount: bookingData.totalAmount || 0,
+        status: 'pending',
+        lot_id: '',
+        user_id: '',
+        slot_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } as any;
+      
+      console.log('✅ Created booking object:', this.booking);
+      this.loading = false;
+      return;
+    }
+
+    // Fallback to booking ID from route params
     const bookingId = this.route.snapshot.paramMap.get('bookingId');
     
     if (!bookingId) {
-      this.errorMessage = 'Invalid booking ID. Please try again.';
+      this.errorMessage = 'No booking data found. Please start a new booking.';
       this.loading = false;
       return;
     }
@@ -250,11 +289,29 @@ export class PaymentPageComponent implements OnInit, OnDestroy {
   getDuration(): string {
     if (!this.booking) return '0';
     
+    console.log('🔍 getDuration() called, booking:', this.booking);
+    
+    // Calculate from start and end times
     const start = new Date(this.booking.start_time);
     const end = new Date(this.booking.end_time);
     const durationMs = end.getTime() - start.getTime();
-    const durationHours = durationMs / (1000 * 60 * 60);
+    const hours = durationMs / (1000 * 60 * 60);
+    console.log('✅ Calculated duration from times:', hours, 'hours');
+    return this.formatDurationDisplay(hours);
+  }
+
+  formatDurationDisplay(hours: number): string {
+    if (hours === 0) return '0';
     
-    return durationHours.toFixed(1);
+    const wholeHours = Math.floor(hours);
+    const minutes = Math.round((hours - wholeHours) * 60);
+    
+    if (wholeHours === 0) {
+      return `${minutes} minutes`;
+    } else if (minutes === 0) {
+      return `${wholeHours} hour${wholeHours > 1 ? 's' : ''}`;
+    } else {
+      return `${wholeHours} hour${wholeHours > 1 ? 's' : ''} ${minutes} minutes`;
+    }
   }
 }

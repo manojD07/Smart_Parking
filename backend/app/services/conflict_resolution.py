@@ -272,8 +272,7 @@ class ConflictResolutionService(BaseService):
             async with slot_lock_manager.lock_slot_allocation(
                 slot_id=str(slot_id),
                 user_id=str(user_id),
-                operation="conflict_validation",
-                timeout=timeout
+                operation="conflict_validation"
             ):
                 # Detect conflicts
                 conflicts = await self.detect_conflicts(
@@ -618,11 +617,13 @@ class ConflictResolutionService(BaseService):
         conflicts = []
         
         try:
-            # Check booking time constraints
+            # Check booking time constraints with 5-minute grace period
             current_time = datetime.now(timezone.utc)
+            grace_period_minutes = 5
+            grace_time = current_time - timedelta(minutes=grace_period_minutes)
             
-            # Cannot book in the past
-            if start_time <= current_time:
+            # Cannot book more than 5 minutes in the past
+            if start_time <= grace_time:
                 conflicts.append(ConflictDetails(
                     conflict_id=f"system_past_booking_{start_time.timestamp()}",
                     conflict_type=ConflictType.SYSTEM_CONSTRAINT,

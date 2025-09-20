@@ -1,6 +1,6 @@
 """Advanced slot allocation service with optimization algorithms."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Tuple
 from uuid import UUID
 from enum import Enum
@@ -475,8 +475,12 @@ class OptimizedSlotAllocator:
         if request.start_time >= request.end_time:
             raise ValidationError("Start time must be before end time")
         
-        if request.start_time < datetime.now(timezone.utc):
-            raise ValidationError("Start time cannot be in the past")
+        # Allow 5-minute grace period for booking start time
+        grace_period_minutes = 5
+        now_with_grace = datetime.now(timezone.utc) - timedelta(minutes=grace_period_minutes)
+        
+        if request.start_time < now_with_grace:
+            raise ValidationError(f"Start time cannot be more than {grace_period_minutes} minutes in the past")
         
         if not isinstance(request.vehicle_type, VehicleType):
             raise ValidationError("Invalid vehicle type")

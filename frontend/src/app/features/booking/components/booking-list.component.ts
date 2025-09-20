@@ -115,11 +115,11 @@ import {
               <div class="row align-items-center">
                 <div class="col-lg-3">
                   <h5 class="card-title mb-1">
-                    {{ booking.lot?.name || 'Parking Lot' }}
+                    {{ booking.lot_name || booking.lot?.name || 'Parking Lot' }}
                   </h5>
                   <p class="text-muted mb-2">
                     <i class="fas fa-map-marker-alt me-1"></i>
-                    {{ booking.lot?.address || 'Address not available' }}
+                    {{ booking.lot_address || booking.lot?.address || 'Address not available' }}
                   </p>
                   <span class="badge" [class]="getStatusBadgeClass(booking.status)">
                     {{ booking.status | titlecase }}

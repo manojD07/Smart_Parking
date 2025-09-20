@@ -265,7 +265,7 @@ class SlotStateMachine:
                 "Slot state transition executed",
                 from_state=old_state.value,
                 to_state=transition.to_state.value,
-                event=event.value,
+                transition_event=event.value,
                 triggered_by=triggered_by
             )
             
@@ -276,7 +276,7 @@ class SlotStateMachine:
             self.current_state = old_state
             self.logger.error(
                 "Slot state transition failed, rolled back",
-                event=event.value,
+                transition_event=event.value,
                 error=str(e)
             )
             raise StateTransitionError(f"Failed to execute transition: {str(e)}")
@@ -343,8 +343,10 @@ class SlotStateMachine:
                 if isinstance(start_time, str):
                     start_time = datetime.fromisoformat(start_time)
                 
-                # Cannot reserve for past times
-                if start_time <= datetime.now(timezone.utc):
+                # Cannot reserve for past times (with 5-minute grace period)
+                grace_period_minutes = 5
+                now_with_grace = datetime.now(timezone.utc) - timedelta(minutes=grace_period_minutes)
+                if start_time <= now_with_grace:
                     return False
         
         if event == SlotEvent.OCCUPY:

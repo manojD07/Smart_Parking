@@ -101,7 +101,8 @@ class ChunkAllocationService:
             # Use distributed locks to prevent race conditions
             async with slot_lock_manager.lock_slot_allocation(
                 slot_id=str(request.slot_id),
-                start_time=request.booking_start.isoformat()
+                user_id=str(request.user_id) if request.user_id else "system",
+                operation="chunk_allocation"
             ) as allocation_lock:
                 
                 self.logger.info(

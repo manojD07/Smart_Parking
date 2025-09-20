@@ -1,15 +1,16 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { ParkingService } from '../../parking/services/parking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
-import { ChunkSelectorComponent } from './chunk-selector.component';
+import { HybridDurationPickerComponent } from './hybrid-duration-picker.component';
+import { DemandIndicatorComponent } from '../../../shared/components/demand-indicator.component';
 import { ParkingLot } from '../../../core/models/parking.model';
 import { PricingPreviewResponse, Booking } from '../../../core/models/booking.model';
-import { TimeChunk, ChunkSelectionEvent } from '../../../core/models/slot-chunks.model';
+import { DurationSelection, DurationTier } from '../../../core/models/duration.model';
 import { 
   nowIST,
   toBackendDate,
@@ -21,7 +22,7 @@ import {
 @Component({
   selector: 'app-booking-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LoadingComponent, ChunkSelectorComponent],
+  imports: [CommonModule, ReactiveFormsModule, LoadingComponent, HybridDurationPickerComponent, DemandIndicatorComponent],
   template: `
     <div class="container mt-4">
       <div class="row">
@@ -41,10 +42,25 @@ import {
           <div class="col-12">
             <div class="card border-primary">
               <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                  <i class="fas fa-map-marker-alt me-2"></i>
-                  {{ selectedLot.name }}
-                </h5>
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0">
+                    <i class="fas fa-map-marker-alt me-2"></i>
+                    {{ selectedLot.name }}
+                  </h5>
+                  <app-demand-indicator 
+                    [lotId]="selectedLot.id"
+                    [config]="{
+                      style: 'badge',
+                      size: 'medium',
+                      showPercentage: true,
+                      showTrend: true,
+                      showRecommendation: false,
+                      showFactors: false,
+                      autoRefresh: true,
+                      refreshInterval: 30
+                    }">
+                  </app-demand-indicator>
+                </div>
               </div>
               <div class="card-body">
                 <p class="card-text">
@@ -81,8 +97,9 @@ import {
               </div>
               <div class="card-body">
                 <form [formGroup]="bookingForm" (ngSubmit)="onSubmit()">
+                  <!-- Compact Single Row Layout -->
                   <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
                       <label for="vehicleType" class="form-label">Vehicle Type</label>
                       <select
                         class="form-select"
@@ -91,7 +108,7 @@ import {
                         [class.is-invalid]="isFieldInvalid('vehicleType')"
                         (change)="onVehicleTypeChange()"
                       >
-                        <option value="">Select vehicle type</option>
+                        <option value="">Select type</option>
                         <option value="car">Car</option>
                         <option value="bike">Bike/Motorcycle</option>
                         <option value="truck">Truck</option>
@@ -103,7 +120,7 @@ import {
                       </div>
                     </div>
 
-                    <div class="col-md-6 mb-3">
+                    <div class="col-lg-4 col-md-4 col-sm-6 mb-3">
                       <label for="vehicleNumber" class="form-label">Vehicle Number</label>
                       <input
                         type="text"
@@ -123,10 +140,8 @@ import {
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-lg-5 col-md-4 col-sm-12 mb-3">
                       <label for="startTime" class="form-label">
                         Start Time <small class="text-muted">(IST)</small>
                       </label>
@@ -143,41 +158,35 @@ import {
                         Please select a start time
                       </div>
                     </div>
-
-                    <div class="col-md-6 mb-3">
-                      <label for="endTime" class="form-label">
-                        End Time <small class="text-muted">(IST)</small>
-                      </label>
-                      <input
-                        type="datetime-local"
-                        class="form-control"
-                        id="endTime"
-                        formControlName="endTime"
-                        [class.is-invalid]="isFieldInvalid('endTime')"
-                        [min]="minEndTime"
-                        (change)="onTimeChange()"
-                      />
-                      <div class="invalid-feedback" *ngIf="isFieldInvalid('endTime')">
-                        Please select an end time
-                      </div>
-                    </div>
                   </div>
 
-                  <!-- Parking Slot - Time Selection -->
-                  <div class="row" *ngIf="selectedSlotId && bookingForm.get('vehicleType')?.value">
+
+                  <!-- Duration Selection -->
+                  <div class="row" *ngIf="selectedLot && bookingForm.get('vehicleType')?.value">
                     <div class="col-12 mb-3">
                       <label class="form-label">
                         <i class="fas fa-clock me-2"></i>
-                        Parking Slot - Time Selection
+                        Select Parking Duration
                       </label>
-                      <app-chunk-selector
-                        [slotId]="selectedSlotId"
+                      <app-hybrid-duration-picker
+                        [lotId]="selectedLot.id"
                         [vehicleType]="bookingForm.get('vehicleType')?.value"
-                        (selectionChanged)="onChunkSelectionChanged($event)"
-                        (timeRangeChanged)="onTimeRangeChanged($event)">
-                      </app-chunk-selector>
+                        [startTime]="bookingForm.get('startTime')?.value"
+                        [config]="{
+                          showTierLabels: true,
+                          showBufferTime: true,
+                          showDemandIndicator: false,
+                          enableQuickSelect: true,
+                          enableCustomDuration: true,
+                          defaultTier: DurationTier.SHORT,
+                          maxDuration: 240,
+                          minDuration: 15
+                        }"
+                        (durationSelected)="onDurationSelected($event)"
+                        (validationChanged)="onDurationValidationChanged($event)">
+                      </app-hybrid-duration-picker>
                       <div class="form-text">
-                        Select available time slots for your parking reservation
+                        Select your parking duration. Our smart system will automatically assign the best available slot.
                       </div>
                     </div>
                   </div>
@@ -190,20 +199,11 @@ import {
                   <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                     <button
                       type="button"
-                      class="btn btn-outline-secondary me-md-2"
+                      class="btn btn-outline-secondary"
                       (click)="goBack()"
                     >
                       <i class="fas fa-arrow-left me-2"></i>
                       Back to Search
-                    </button>
-                    <button
-                      type="submit"
-                      class="btn btn-primary"
-                      [disabled]="bookingForm.invalid || submitting || !pricingPreview"
-                    >
-                      <span class="spinner-border spinner-border-sm me-2" *ngIf="submitting"></span>
-                      <i class="fas fa-credit-card me-2" *ngIf="!submitting"></i>
-                      {{ submitting ? 'Processing...' : 'Proceed to Payment' }}
                     </button>
                   </div>
                 </form>
@@ -226,13 +226,13 @@ import {
                   <p class="mt-2 mb-0">Calculating price...</p>
                 </div>
 
-                <div *ngIf="pricingPreview && !loadingPrice">
+                <div *ngIf="pricingPreview && !loadingPrice && selectedDuration">
                   <div class="mb-3">
                     <div class="d-flex justify-content-between mb-2">
                       <span>Duration:</span>
-                      <span class="fw-bold">{{ pricingPreview.duration_hours.toFixed(1) }} hours</span>
+                      <span class="fw-bold">{{ formatDurationDisplay(pricingPreview.duration_hours) }}</span>
                     </div>
-                    <div class="d-flex justify-content-between mb-2">
+                    <div class="d-flex justify-content-between mb-2" *ngIf="pricingPreview">
                       <span>Average Rate:</span>
                       <span class="fw-bold">\${{ pricingPreview.average_rate.toFixed(2) }}/hr</span>
                     </div>
@@ -245,7 +245,7 @@ import {
                   <hr>
 
                   <!-- Pricing Breakdown -->
-                  <div class="mb-3" *ngIf="pricingPreview.pricing_breakdown.length > 0">
+                  <div class="mb-3" *ngIf="pricingPreview && pricingPreview.pricing_breakdown.length > 0">
                     <h6 class="mb-2">Pricing Breakdown:</h6>
                     <div *ngFor="let item of pricingPreview.pricing_breakdown" class="small mb-2">
                       <div class="d-flex justify-content-between">
@@ -253,7 +253,7 @@ import {
                         <span>\${{ item.amount.toFixed(2) }}</span>
                       </div>
                       <div class="text-muted">
-                        {{ item.duration_hours.toFixed(1) }}h × \${{ item.rate_per_hour.toFixed(2) }}/hr
+                        {{ formatDurationDisplay(item.duration_hours) }} × \${{ item.rate_per_hour.toFixed(2) }}/hr
                         <span *ngIf="item.multiplier && item.multiplier !== 1">
                           × {{ item.multiplier }}
                         </span>
@@ -275,8 +275,34 @@ import {
                   </div>
                 </div>
 
-                <div *ngIf="!pricingPreview && !loadingPrice && bookingForm.valid" class="text-center py-3">
-                  <p class="text-muted mb-0">Complete the form to see pricing</p>
+                <div *ngIf="!selectedDuration && !loadingPrice" class="text-center py-3">
+                  <div class="alert alert-info mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    <strong>Select a parking duration</strong> to see pricing details
+                  </div>
+                </div>
+                
+                <div *ngIf="selectedDuration && !pricingPreview && !loadingPrice" class="text-center py-3">
+                  <div class="alert alert-warning mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Unable to calculate pricing. Please try again.
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Payment Button -->
+              <div class="card-footer">
+                <div class="d-grid">
+                  <button
+                    type="submit"
+                    class="btn btn-primary btn-lg"
+                    [disabled]="bookingForm.invalid || submitting"
+                    (click)="onSubmit()"
+                  >
+                    <span class="spinner-border spinner-border-sm me-2" *ngIf="submitting"></span>
+                    <i class="fas fa-credit-card me-2" *ngIf="!submitting"></i>
+                    {{ submitting ? 'Processing...' : 'Proceed to Payment' }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -321,16 +347,35 @@ import {
 export class BookingFormComponent implements OnInit, OnDestroy {
   bookingForm: FormGroup;
   selectedLot: ParkingLot | null = null;
-  selectedSlotId: string = '';
   pricingPreview: PricingPreviewResponse | null = null;
   loading = true;
   loadingPrice = false;
   submitting = false;
   errorMessage = '';
   
-  // Chunk-based booking properties
-  selectedChunks: TimeChunk[] = [];
-  chunkSelectionActive = false;
+  // Duration-based booking properties
+  selectedDuration: DurationSelection | null = null;
+  isDurationValid = false;
+  
+  // Make enum accessible in template
+  DurationTier = DurationTier;
+
+  /**
+   * Format duration in hours to "X hour Y minutes" format
+   */
+  formatDurationDisplay(hours: number): string {
+    const totalMinutes = Math.round(hours * 60);
+    const hoursPart = Math.floor(totalMinutes / 60);
+    const minutesPart = totalMinutes % 60;
+    
+    if (hoursPart === 0) {
+      return `${minutesPart} minutes`;
+    } else if (minutesPart === 0) {
+      return `${hoursPart} hour${hoursPart > 1 ? 's' : ''}`;
+    } else {
+      return `${hoursPart} hour${hoursPart > 1 ? 's' : ''} ${minutesPart} minutes`;
+    }
+  }
   
   private destroy$ = new Subject<void>();
 
@@ -339,7 +384,8 @@ export class BookingFormComponent implements OnInit, OnDestroy {
     private bookingService: BookingService,
     private parkingService: ParkingService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private location: Location
   ) {
     this.bookingForm = this.createBookingForm();
   }
@@ -362,8 +408,7 @@ export class BookingFormComponent implements OnInit, OnDestroy {
     return this.fb.group({
       vehicleType: ['', Validators.required],
       vehicleNumber: ['', [Validators.required, Validators.minLength(3)]],
-      startTime: [toDatetimeLocalIST(startTime), Validators.required],
-      endTime: [toDatetimeLocalIST(endTime), Validators.required]
+      startTime: [toDatetimeLocalIST(startTime), Validators.required]
     });
   }
 
@@ -398,18 +443,8 @@ export class BookingFormComponent implements OnInit, OnDestroy {
           next: (lot) => {
             this.selectedLot = lot;
             
-            // Get the first available slot for chunk selection
-            this.parkingService.getParkingSlots(lot.id).subscribe({
-              next: (slots) => {
-                if (slots.length > 0) {
-                  this.selectedSlotId = slots[0].id; // Use first available slot
-                  console.log('Selected slot ID for chunks:', this.selectedSlotId);
-                }
-              },
-              error: (error) => {
-                console.warn('Failed to get slots:', error);
-              }
-            });
+            // No need to pre-select slots - backend will handle optimal allocation
+            console.log('Parking lot loaded successfully:', lot.name);
             
             this.prefillForm(queryParams);
             this.loading = false;
@@ -471,31 +506,30 @@ export class BookingFormComponent implements OnInit, OnDestroy {
     this.calculatePricing();
   }
 
-  // ===== CHUNK-BASED BOOKING METHODS =====
+  // ===== DURATION-BASED BOOKING METHODS =====
   
-  onChunkSelectionChanged(event: ChunkSelectionEvent): void {
-    this.selectedChunks = event.selectedChunks;
-    this.chunkSelectionActive = this.selectedChunks.length > 0;
+  onDurationSelected(duration: DurationSelection): void {
+    this.selectedDuration = duration;
     
-    // Update form times based on chunk selection
-    if (this.selectedChunks.length > 0) {
-      const startTime = new Date(event.startTime);
-      const endTime = new Date(event.endTime);
-      
-      // Convert to datetime-local format
-      this.bookingForm.patchValue({
-        startTime: this.toDateTimeLocal(startTime),
-        endTime: this.toDateTimeLocal(endTime)
-      });
-      
-      // Recalculate pricing
-      this.calculatePricing();
+    if (duration.isValid) {
+      // Calculate end time based on start time and duration
+      const startTime = this.bookingForm.get('startTime')?.value;
+      if (startTime) {
+        const startDate = new Date(startTime);
+        const endDate = new Date(startDate.getTime() + (duration.duration * 60 * 1000));
+        
+        this.bookingForm.patchValue({
+          endTime: this.toDateTimeLocal(endDate)
+        });
+        
+        // Recalculate pricing with new duration
+        this.calculatePricing();
+      }
     }
   }
   
-  onTimeRangeChanged(event: { startTime: string; endTime: string; sessionId?: string }): void {
-    // This is called when chunk selection changes the time range
-    console.log('Time range changed:', event);
+  onDurationValidationChanged(isValid: boolean): void {
+    this.isDurationValid = isValid;
   }
   
   private toDateTimeLocal(date: Date): string {
@@ -514,27 +548,41 @@ export class BookingFormComponent implements OnInit, OnDestroy {
       
       const formValue = this.bookingForm.value;
       
+      // Calculate end time from start time + selected duration
+      if (!this.selectedDuration) {
+        console.log('⚠️ No duration selected, skipping pricing calculation');
+        this.loadingPrice = false;
+        return;
+      }
+      
+      const durationMinutes = this.selectedDuration.duration;
+      
+      // CORRECT APPROACH: Convert start time to UTC first, then add duration
+      const convertedStartTime = fromDatetimeLocalToUTC(formValue.startTime);
+      const startTimeUTC = new Date(convertedStartTime);
+      const endTimeUTC = new Date(startTimeUTC.getTime() + durationMinutes * 60 * 1000);
+      const convertedEndTime = endTimeUTC.toISOString();
+      
       // Debug: Log form values
       console.log('🔍 Booking form pricing calculation:');
       console.log('  Form startTime (IST):', formValue.startTime);
-      console.log('  Form endTime (IST):', formValue.endTime);
-      
-      // Convert IST form input to UTC for backend
-      const convertedStartTime = fromDatetimeLocalToUTC(formValue.startTime);
-      const convertedEndTime = fromDatetimeLocalToUTC(formValue.endTime);
+      console.log('  Duration:', durationMinutes, 'minutes');
+      console.log('  Start Time UTC:', startTimeUTC);
+      console.log('  End Time UTC:', endTimeUTC);
+      console.log('  Duration in UTC hours:', (endTimeUTC.getTime() - startTimeUTC.getTime()) / (1000 * 60 * 60));
       
       console.log('  Converted startTime (UTC):', convertedStartTime);
       console.log('  Converted endTime (UTC):', convertedEndTime);
       
       // Validate that times are in the future
       const now = new Date();
-      if (new Date(convertedStartTime) <= now) {
+      if (startTimeUTC <= now) {
         console.error('❌ Start time is in the past, cannot calculate pricing');
         this.loadingPrice = false;
         return;
       }
       
-      if (new Date(convertedEndTime) <= new Date(convertedStartTime)) {
+      if (endTimeUTC <= startTimeUTC) {
         console.error('❌ End time must be after start time');
         this.loadingPrice = false;
         return;
@@ -548,11 +596,21 @@ export class BookingFormComponent implements OnInit, OnDestroy {
       };
       
       console.log('📤 Booking form pricing request:', pricingRequest);
+      console.log('  🕐 Start time (UTC):', convertedStartTime);
+      console.log('  🕐 End time (UTC):', convertedEndTime);
+      console.log('  🚗 Vehicle type:', formValue.vehicleType);
+      console.log('  ⏱️  Duration hours:', durationMinutes / 60);
 
       this.bookingService.getPricingPreview(pricingRequest)
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (pricing) => {
+            console.log('✅ Pricing response received:', pricing);
+            console.log('  💰 Total amount:', pricing.total_amount);
+            console.log('  📊 Breakdown items:', pricing.pricing_breakdown?.length || 0);
+            if (pricing.pricing_breakdown?.length > 0) {
+              console.log('  📋 Rules applied:', pricing.pricing_breakdown.map(b => `${b.rule_name}: $${b.rate_per_hour}/hr × ${b.multiplier || 1}`));
+            }
             this.pricingPreview = pricing;
             this.loadingPrice = false;
           },
@@ -567,69 +625,105 @@ export class BookingFormComponent implements OnInit, OnDestroy {
   }
 
   onSubmit(): void {
-    if (this.bookingForm.valid && this.selectedLot && this.selectedChunks.length > 0) {
+    // Clear any previous error messages
+    this.errorMessage = '';
+    
+    // Validation checks with user-friendly messages
+    if (!this.selectedDuration) {
+      this.errorMessage = 'Please select a parking duration before proceeding to payment.';
+      return;
+    }
+    
+    if (!this.pricingPreview) {
+      this.errorMessage = 'Unable to calculate pricing. Please select a duration and try again.';
+      return;
+    }
+    
+    if ((this.pricingPreview.total_amount || 0) <= 0) {
+      this.errorMessage = 'Invalid pricing calculated ($0.00). Please select a different duration or contact support.';
+      return;
+    }
+    
+    if (!this.isDurationValid) {
+      this.errorMessage = 'Selected duration is not valid. Please choose a different duration.';
+      return;
+    }
+    
+    if (this.bookingForm.valid && this.selectedLot && this.selectedDuration && this.isDurationValid) {
       this.submitting = true;
-      this.errorMessage = '';
-
-      // Extract chunk IDs from selected chunks
-      const chunkIds = this.selectedChunks.map(chunk => chunk.id);
       
-      console.log('🔄 Starting chunk-based payment flow...');
-      console.log('- Selected chunks:', chunkIds.length, chunkIds);
+      console.log('🔄 Starting duration-based payment flow...');
+      console.log('- Selected duration:', this.selectedDuration.duration, 'minutes');
+      console.log('- Duration tier:', this.selectedDuration.tier);
       console.log('- Lot:', this.selectedLot.name);
       console.log('- Vehicle:', this.bookingForm.value.vehicleType);
       console.log('- Form valid:', this.bookingForm.valid);
       console.log('- Form value:', this.bookingForm.value);
       
-      // Reserve chunks in Redis with 10-minute UTC-based TTL
-      this.bookingService.reserveChunks(chunkIds)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (reservation) => {
-            this.submitting = false;
-            
-            if (reservation.success) {
-              console.log('✅ Chunks reserved successfully:', reservation.session_id);
-              
-              // Navigate to payment page with reservation session ID and booking details
-              const navigationExtras = {
-                queryParams: {
-                  sessionId: reservation.session_id,
-                  slotId: this.selectedSlotId,
-                  slotNumber: `${this.selectedLot!.name}-${this.selectedSlotId?.substring(0, 8)}`,
-                  lotId: this.selectedLot!.id,
-                  lotName: this.selectedLot!.name,
-                  vehicleType: this.bookingForm.value.vehicleType,
-                  vehicleNumber: this.bookingForm.value.vehicleNumber.toUpperCase(),
-                  chunks: JSON.stringify(this.selectedChunks),
-                  totalAmount: this.pricingPreview?.total_amount || 0,
-                  expiresAt: reservation.expires_at  // UTC timestamp from backend
-                }
-              };
-              
-              this.router.navigate(['/payment'], navigationExtras);
-            } else {
-              console.error('❌ Chunk reservation failed:', reservation.error);
-              this.errorMessage = reservation.error || 'Failed to reserve time slots. Please try again.';
+      // Create booking reservation with duration-based approach
+      // Calculate end time from start time + duration
+      const startTime = new Date(this.bookingForm.value.startTime);
+      const endTime = new Date(startTime.getTime() + this.selectedDuration!.duration * 60 * 1000);
+      
+      const bookingRequest = {
+        lot_id: this.selectedLot!.id,
+        vehicle_type: this.bookingForm.value.vehicleType,
+        vehicle_number: this.bookingForm.value.vehicleNumber,
+        start_time: fromDatetimeLocalToUTC(this.bookingForm.value.startTime),
+        end_time: fromDatetimeLocalToUTC(endTime.toISOString().slice(0, 16)), // Convert to datetime-local format
+        duration_minutes: this.selectedDuration!.duration,
+        duration_tier: this.selectedDuration!.tier
+      };
+      
+      // TODO: When backend supports duration-based reservations, replace this with proper reservation API
+      // For now, simulate a reservation by generating a session ID
+      const mockReservation = {
+        success: true,
+        session_id: 'duration_' + Date.now() + '_' + Math.random().toString(36).substring(7),
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes from now
+      };
+      
+      // Simulate async call with setTimeout
+      setTimeout(() => {
+        this.submitting = false;
+        const reservation = mockReservation;
+        
+        if (reservation.success) {
+          console.log('✅ Duration reservation successful:', reservation.session_id);
+          
+          // Navigate to payment page with reservation session ID and booking details
+          const navigationExtras = {
+            queryParams: {
+              sessionId: reservation.session_id,
+              lotId: this.selectedLot!.id,
+              lotName: this.selectedLot!.name,
+              vehicleType: this.bookingForm.value.vehicleType,
+              vehicleNumber: this.bookingForm.value.vehicleNumber.toUpperCase(),
+              duration: this.selectedDuration?.duration || 0,
+              durationTier: this.selectedDuration?.tier || 'short',
+              totalAmount: this.pricingPreview?.total_amount || 0,
+              expiresAt: reservation.expires_at  // UTC timestamp from backend
             }
-          },
-          error: (error) => {
-            console.error('❌ Reservation error:', error);
-            this.errorMessage = 'Failed to reserve time slots. Please try again.';
-            this.submitting = false;
-          }
-        });
+          };
+          
+          this.router.navigate(['/payment'], navigationExtras);
+        } else {
+          console.error('❌ Duration reservation failed');
+          this.errorMessage = 'Failed to reserve parking slot. Please try again.';
+        }
+      }, 1000); // 1 second delay to simulate API call
     } else {
       this.markFormGroupTouched();
       
-      if (this.selectedChunks.length === 0) {
-        this.errorMessage = 'Please select at least one time slot to continue.';
+      if (!this.selectedDuration || !this.isDurationValid) {
+        this.errorMessage = 'Please select a valid parking duration to continue.';
       }
     }
   }
 
   goBack(): void {
-    this.router.navigate(['/parking']);
+    // Use browser back to preserve search results and form state
+    this.location.back();
   }
 
   isFieldInvalid(fieldName: string): boolean {

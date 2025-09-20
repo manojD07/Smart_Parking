@@ -51,6 +51,7 @@ class BookingResponse(BaseModel):
     
     # Related object names (simplified to avoid async loading issues)
     lot_name: Optional[str] = Field(None, description="Parking lot name")
+    lot_address: Optional[str] = Field(None, description="Parking lot address")
     slot_number: Optional[str] = Field(None, description="Parking slot number")
     user_email: Optional[str] = Field(None, description="User email")
     
@@ -82,6 +83,7 @@ class BookingResponse(BaseModel):
             updated_at=booking.updated_at,
             # Populate related object data
             lot_name=booking.lot.name if booking.lot else None,
+            lot_address=booking.lot.address if booking.lot else None,
             slot_number=booking.slot.slot_number if booking.slot else None,
             user_email=booking.user.email if booking.user else None
         )

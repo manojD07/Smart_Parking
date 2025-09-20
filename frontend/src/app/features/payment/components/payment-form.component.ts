@@ -397,6 +397,32 @@ export class PaymentFormComponent implements OnInit, OnDestroy {
       this.processing = true;
       this.errorMessage = '';
 
+      // Check if this is a temporary booking (from booking form)
+      if (this.bookingId.startsWith('temp-')) {
+        // Mock payment processing for temporary bookings
+        const simulateFailure = this.paymentForm.get('simulate_failure')?.value || false;
+        
+        setTimeout(() => {
+          this.processing = false;
+          
+          if (simulateFailure) {
+            this.errorMessage = 'Payment failed: Simulated failure for testing purposes.';
+          } else {
+            const mockResult: PaymentResult = {
+              success: true,
+              payment_id: 'pay_' + Math.random().toString(36).substr(2, 9),
+              transaction_id: 'txn_' + Math.random().toString(36).substr(2, 9),
+              message: 'Payment processed successfully',
+              booking_id: this.bookingId,
+              amount: this.amount
+            };
+            this.paymentSuccess.emit(mockResult);
+          }
+        }, 2000); // 2 second delay to simulate processing
+        return;
+      }
+
+      // Real payment processing for actual bookings
       const paymentRequest: PaymentRequest = {
         booking_id: this.bookingId,
         payment_method: this.selectedMethod,

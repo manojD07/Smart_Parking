@@ -25,6 +25,7 @@ export interface Booking {
   updated_at: string;
   // Related object data
   lot_name?: string;
+  lot_address?: string;
   slot_number?: string;
   user_email?: string;
   lot?: any;

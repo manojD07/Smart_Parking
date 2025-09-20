@@ -1,0 +1,162 @@
+<div class="hybrid-duration-picker">
+  <!-- Header (only show demand indicator if enabled) -->
+  <div class="picker-header" *ngIf="config.showDemandIndicator">
+    <!-- Demand Level Indicator -->
+    <div class="demand-indicator">
+      <span class="demand-label">Demand:</span>
+      <span class="demand-level" [class]="'demand-' + currentDemandLevel">
+        <i [class]="DurationUtils.getDemandLevelIcon(currentDemandLevel)"></i>
+        {{ getDemandLevelDisplay() }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Quick Select Options with Custom Duration -->
+  <div *ngIf="config.enableQuickSelect" class="quick-select-section">
+    <div class="mb-2">
+      <label class="section-label mb-2">Popular choices:</label>
+    </div>
+
+    <div class="quick-select-grid">
+      <button
+        *ngFor="let option of quickSelectOptions"
+        type="button"
+        class="quick-select-btn"
+[class.selected]="isQuickOptionSelected(option)"
+        [class.popular]="option.popular"
+        (click)="onQuickSelect(option)"
+      >
+        <div class="option-duration">{{ option.label }}</div>
+        <div class="option-description">{{ option.description }}</div>
+        <div *ngIf="option.popular" class="popular-badge">
+          <i class="fas fa-star"></i>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tier-based Selection -->
+  <div *ngIf="config.showTierLabels" class="tier-selection-section">
+    <label class="section-label">Duration Tiers:</label>
+    
+    <div class="tier-tabs">
+      <button
+        *ngFor="let tierConfig of tierConfigs"
+        type="button"
+        class="tier-tab"
+[class.active]="currentTier === tierConfig.tier"
+        [attr.data-tier]="tierConfig.tier"
+        (click)="updateSelectedDuration(tierConfig.minDuration)"
+      >
+        <div class="tier-name">{{ tierConfig.tier | titlecase }}</div>
+        <div class="tier-range">
+          {{ tierConfig.minDuration }}-{{ tierConfig.maxDuration }} min
+        </div>
+        <div class="tier-increment">{{ tierConfig.increment }} min steps</div>
+      </button>
+    </div>
+
+    <!-- Duration options within selected tier -->
+    <div *ngIf="currentTier" class="tier-durations">
+      <div class="tier-description">
+        {{ currentTier ? DurationUtils.getTierDescription(currentTier) : '' }}
+      </div>
+      
+      <div class="duration-options">
+        <button
+          *ngFor="let duration of getTierDurations(currentTier)"
+          type="button"
+          class="duration-option"
+          [class.selected]="selectedDuration === duration"
+          (click)="updateSelectedDuration(duration)"
+        >
+          {{ DurationUtils.formatDurationDisplay(duration) }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Duration Summary -->
+  <div class="duration-summary" [class]="getValidationStatusClass()">
+    <div class="summary-header">
+      <span class="selected-duration">
+        <i class="fas fa-clock me-1"></i>
+        {{ DurationUtils.formatDurationDisplay(selectedDuration) }}
+      </span>
+      
+      <span *ngIf="currentTier" class="duration-tier" [style.color]="currentTier ? DurationUtils.getTierColor(currentTier) : '#6c757d'">
+        {{ currentTier | titlecase }} tier
+      </span>
+    </div>
+
+
+    <!-- Alternative suggestions -->
+    <div *ngIf="validationResponse?.alternatives?.length" class="alternatives-section">
+      <label class="alternatives-label">Suggestions:</label>
+      <div class="alternatives-list">
+        <button
+          *ngFor="let alt of validationResponse?.alternatives || []"
+          type="button"
+          class="alternative-btn"
+          (click)="updateSelectedDuration(alt)"
+        >
+          {{ DurationUtils.formatDurationDisplay(alt) }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Warnings -->
+    <div *ngIf="warningMessages.length" class="warnings-section">
+      <div *ngFor="let warning of warningMessages" class="warning-message">
+        <i class="fas fa-info-circle me-1"></i>
+        {{ warning }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Duration Input (Bottom Section) -->
+  <div *ngIf="config.enableCustomDuration" class="custom-duration-section mt-3">
+    <label class="section-label mb-2">Custom Duration:</label>
+    <div class="custom-input-group">
+      <button
+        type="button"
+        class="duration-adjust-btn"
+        (click)="adjustDuration(-1)"
+        [disabled]="selectedDuration <= config.minDuration"
+      >
+        <i class="fas fa-minus"></i>
+      </button>
+
+      <div class="duration-input-wrapper">
+        <input
+          type="number"
+          class="form-control duration-input"
+          [class.is-invalid]="hasFormErrors"
+          [formControl]="durationControl"
+          [min]="config.minDuration"
+          [max]="config.maxDuration"
+          (blur)="onCustomDurationChange(durationControl.value || 0)"
+        />
+        <span class="input-suffix">min</span>
+      </div>
+
+      <button
+        type="button"
+        class="duration-adjust-btn"
+        (click)="adjustDuration(1)"
+        [disabled]="selectedDuration >= config.maxDuration"
+      >
+        <i class="fas fa-plus"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Increment information -->
+  <div *ngIf="currentTier" class="increment-info">
+    <small class="text-muted">
+      <i class="fas fa-info-circle me-1"></i>
+      This tier uses {{ DurationUtils.getIncrementForDuration(selectedDuration) }}-minute increments
+    </small>
+  </div>
+</div>

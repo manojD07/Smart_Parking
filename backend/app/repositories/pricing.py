@@ -9,7 +9,7 @@ from datetime import datetime, time, timezone, timedelta
 
 from app.repositories.base import BaseRepository
 from app.models.pricing import PricingRule, PricingRuleType
-from app.models.parking import VehicleType
+from app.models.parking import VehicleType, ParkingLot
 
 
 class PricingRuleRepository(BaseRepository[PricingRule]):
@@ -225,6 +225,15 @@ class PricingRuleRepository(BaseRepository[PricingRule]):
             self.logger.error("Failed to create default rules", lot_id=lot_id, error=str(e))
             raise
     
+    async def _get_lot_default_rates(self, lot_id: UUID) -> ParkingLot:
+        """Get parking lot with default hourly rates."""
+        query = select(ParkingLot).where(ParkingLot.id == lot_id)
+        result = await self.session.execute(query)
+        lot = result.scalar_one_or_none()
+        if not lot:
+            raise ValueError(f"Parking lot {lot_id} not found")
+        return lot
+    
     async def calculate_pricing(
         self, 
         lot_id: UUID, 
@@ -249,8 +258,9 @@ class PricingRuleRepository(BaseRepository[PricingRule]):
                 applicable_rules = await self.get_applicable_rules(lot_id, vehicle_type, current_time)
                 
                 if not applicable_rules:
-                    # No rules found, use default pricing
-                    default_rate = 5.0 if vehicle_type == VehicleType.CAR else 2.0
+                    # No rules found, use lot's default pricing
+                    lot = await self._get_lot_default_rates(lot_id)
+                    default_rate = float(lot.hourly_rate_car if vehicle_type == VehicleType.CAR else lot.hourly_rate_bike)
                     remaining_hours = (end_time - current_time).total_seconds() / 3600
                     amount = default_rate * remaining_hours
                     total_amount += amount

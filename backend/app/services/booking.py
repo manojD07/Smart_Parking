@@ -170,7 +170,7 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
         except (ValidationError, InsufficientSlotsError, BusinessLogicError):
             raise
         except Exception as e:
-            self.logger.error("Failed to create atomic booking", user_id=user_id, error=str(e))
+            self.logger.error("Failed to create atomic booking", user_id=user_id, exception=str(e))
             raise BusinessLogicError("Failed to create booking")
     
     async def cancel_booking(self, booking_id: UUID, user_id: UUID) -> bool:
