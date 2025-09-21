@@ -83,7 +83,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
               <div class="card-body">
                 <div class="d-flex justify-content-between">
                   <div>
-                    <h4 class="mb-0">₹{{ dashboardData.overview.today_revenue || 0 | number:'1.2-2' }}</h4>
+                    <h4 class="mb-0">$ {{ dashboardData.overview.today_revenue || 0 | number:'1.2-2' }}</h4>
                     <small>Today's Revenue</small>
                   </div>
                   <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
@@ -157,7 +157,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
                     <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.car.count || 0 }}</h4>
                     <small class="text-muted">Cars</small>
                     <div class="text-success mt-1">
-                      ₹{{ dashboardData.today_statistics.vehicle_type_breakdown.car.revenue || 0 | number:'1.2-2' }}
+                      $ {{ dashboardData.today_statistics.vehicle_type_breakdown.car.revenue || 0 | number:'1.2-2' }}
                     </div>
                   </div>
                   <div class="col-6">
@@ -165,7 +165,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
                     <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.bike.count || 0 }}</h4>
                     <small class="text-muted">Bikes</small>
                     <div class="text-success mt-1">
-                      ₹{{ dashboardData.today_statistics.vehicle_type_breakdown.bike.revenue || 0 | number:'1.2-2' }}
+                      $ {{ dashboardData.today_statistics.vehicle_type_breakdown.bike.revenue || 0 | number:'1.2-2' }}
                     </div>
                   </div>
                 </div>
@@ -191,11 +191,11 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
                     <small class="text-muted">Total Bookings</small>
                   </div>
                   <div class="col-md-3">
-                    <h4 class="text-success">₹{{ dashboardData.today_statistics.total_revenue || 0 | number:'1.2-2' }}</h4>
+                    <h4 class="text-success">$ {{ dashboardData.today_statistics.total_revenue || 0 | number:'1.2-2' }}</h4>
                     <small class="text-muted">Total Revenue</small>
                   </div>
                   <div class="col-md-3">
-                    <h4 class="text-info">₹{{ dashboardData.today_statistics.average_booking_value || 0 | number:'1.2-2' }}</h4>
+                    <h4 class="text-info">$ {{ dashboardData.today_statistics.average_booking_value || 0 | number:'1.2-2' }}</h4>
                     <small class="text-muted">Average Booking</small>
                   </div>
                   <div class="col-md-3">

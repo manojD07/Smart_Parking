@@ -152,11 +152,11 @@ import { ParkingLot, CreateLotData, UpdateLotData } from '../../../../core/servi
 
                   <!-- Pricing -->
                   <div class="pricing-section">
-                    <label class="form-label">Hourly Rates (₹)</label>
+                    <label class="form-label">Hourly Rates ($)</label>
                     <div class="row">
                       <div class="col-6">
                         <div class="input-group">
-                          <span class="input-group-text">₹</span>
+                          <span class="input-group-text">$</span>
                           <input 
                             type="number" 
                             class="form-control" 
@@ -175,7 +175,7 @@ import { ParkingLot, CreateLotData, UpdateLotData } from '../../../../core/servi
                       </div>
                       <div class="col-6">
                         <div class="input-group">
-                          <span class="input-group-text">₹</span>
+                          <span class="input-group-text">$</span>
                           <input 
                             type="number" 
                             class="form-control" 

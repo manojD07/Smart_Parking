@@ -26,7 +26,7 @@ async def get_payment_methods(
     payment_service = DummyPaymentService()
     return {
         "payment_methods": payment_service.get_payment_methods(),
-        "supported_currencies": ["INR"],
+        "supported_currencies": ["USD"],
         "service_charges": {
             "credit_card": 2.5,
             "debit_card": 1.5,
@@ -130,7 +130,7 @@ async def get_payment_status(
             "payment_status": payment_status,
             "booking_status": booking.status,
             "amount": float(booking.total_amount),
-            "currency": "INR"
+            "currency": "USD"
         }
         
     except BaseApplicationError as e:

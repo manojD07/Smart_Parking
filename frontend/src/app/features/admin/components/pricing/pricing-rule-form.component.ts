@@ -84,10 +84,10 @@ import { ToastService } from '../../../../core/services/toast.service';
               <div class="row mb-3">
                 <div class="col-md-4">
                   <label class="form-label fw-semibold">
-                    <i class="fas fa-rupee-sign me-2"></i>Price per Hour *
+                    <i class="fas fa-dollar-sign me-2"></i>Price per Hour *
                   </label>
                   <div class="input-group">
-                    <span class="input-group-text">₹</span>
+                    <span class="input-group-text">$</span>
                     <input 
                       type="number" 
                       class="form-control"
@@ -120,7 +120,7 @@ import { ToastService } from '../../../../core/services/toast.service';
                     <i class="fas fa-calculator me-2"></i>Effective Price
                   </label>
                   <div class="form-control-plaintext fw-bold text-success">
-                    ₹{{ effectivePrice.toFixed(2) }}/hr
+                    $ {{ effectivePrice.toFixed(2) }}/hr
                   </div>
                   <div class="form-text">Final price customers pay</div>
                 </div>
@@ -205,7 +205,7 @@ import { ToastService } from '../../../../core/services/toast.service';
                     <i class="fas fa-arrow-down me-2"></i>Minimum Charge
                   </label>
                   <div class="input-group">
-                    <span class="input-group-text">₹</span>
+                    <span class="input-group-text">$</span>
                     <input 
                       type="number" 
                       class="form-control"
@@ -222,7 +222,7 @@ import { ToastService } from '../../../../core/services/toast.service';
                     <i class="fas fa-arrow-up me-2"></i>Maximum Charge
                   </label>
                   <div class="input-group">
-                    <span class="input-group-text">₹</span>
+                    <span class="input-group-text">$</span>
                     <input 
                       type="number" 
                       class="form-control"
@@ -242,10 +242,10 @@ import { ToastService } from '../../../../core/services/toast.service';
                 </h6>
                 <div class="row">
                   <div class="col-md-6">
-                    <strong>Effective Rate:</strong> ₹{{ effectivePrice.toFixed(2) }}/hour
+                    <strong>Effective Rate:</strong> $ {{ effectivePrice.toFixed(2) }}/hour
                   </div>
                   <div class="col-md-6">
-                    <strong>2-hour parking:</strong> ₹{{ (effectivePrice * 2).toFixed(2) }}
+                    <strong>2-hour parking:</strong> $ {{ (effectivePrice * 2).toFixed(2) }}
                   </div>
                 </div>
                 <div class="mt-2" *ngIf="selectedRuleType">

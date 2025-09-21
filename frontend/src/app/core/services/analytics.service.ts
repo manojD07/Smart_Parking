@@ -627,7 +627,7 @@ export class AnalyticsService extends BaseApiService {
    * Format currency display
    */
   formatCurrency(amount: number): string {
-    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `$ ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   /**

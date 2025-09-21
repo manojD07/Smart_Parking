@@ -127,7 +127,7 @@ interface Bank {
                     <div class="alert alert-info">
                       <h4 class="mb-0">
                         Total Amount: 
-                        <span class="text-success">₹{{ paymentSession.totalAmount | number:'1.2-2' }}</span>
+                        <span class="text-success">$ {{ paymentSession.totalAmount | number:'1.2-2' }}</span>
                       </h4>
                     </div>
                   </div>

@@ -56,19 +56,19 @@ import { ParkingLot } from '../../../../core/services/parking-lot.service';
         <!-- Pricing Info -->
         <div class="pricing-section mb-3">
           <div class="text-muted small mb-2">
-            <i class="fas fa-rupee-sign me-1"></i>Hourly Rates
+            <i class="fas fa-dollar-sign me-1"></i>Hourly Rates
           </div>
           <div class="row">
             <div class="col-6">
               <div class="pricing-item">
                 <span class="pricing-vehicle">Car:</span>
-                <span class="pricing-rate">₹{{ lot.hourly_rate_car }}/hr</span>
+                <span class="pricing-rate">$ {{ lot.hourly_rate_car }}/hr</span>
               </div>
             </div>
             <div class="col-6">
               <div class="pricing-item">
                 <span class="pricing-vehicle">Bike:</span>
-                <span class="pricing-rate">₹{{ lot.hourly_rate_bike }}/hr</span>
+                <span class="pricing-rate">$ {{ lot.hourly_rate_bike }}/hr</span>
               </div>
             </div>
           </div>

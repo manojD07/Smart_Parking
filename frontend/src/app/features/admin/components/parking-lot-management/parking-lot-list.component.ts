@@ -267,11 +267,11 @@ interface PaginationInfo {
                     <div class="small">
                       <div class="d-flex justify-content-between">
                         <span class="text-muted">Car:</span>
-                        <span class="fw-semibold text-success">₹{{ lot.hourly_rate_car }}/hr</span>
+                        <span class="fw-semibold text-success">$ {{ lot.hourly_rate_car }}/hr</span>
                       </div>
                       <div class="d-flex justify-content-between">
                         <span class="text-muted">Bike:</span>
-                        <span class="fw-semibold text-success">₹{{ lot.hourly_rate_bike }}/hr</span>
+                        <span class="fw-semibold text-success">$ {{ lot.hourly_rate_bike }}/hr</span>
                       </div>
                     </div>
                   </div>

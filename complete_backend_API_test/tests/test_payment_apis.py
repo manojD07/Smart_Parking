@@ -375,7 +375,7 @@ class TestPaymentAPIs:
         """Test different currency support."""
         print("\n💱 Testing Currency Support")
         
-        currencies = ["USD", "EUR", "GBP"]
+        currencies = ["USD"]
         
         for currency in currencies:
             print(f"\n💱 Testing {currency}")
