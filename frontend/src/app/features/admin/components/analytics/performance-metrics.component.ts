@@ -25,8 +25,16 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
               <h3>
                 <i class="fas fa-tachometer-alt me-2 text-warning"></i>
                 Performance Metrics & KPIs
+                <span class="badge bg-warning text-dark ms-2">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Demo Data
+                </span>
               </h3>
               <p class="text-muted mb-0">Monitor system performance and key performance indicators</p>
+              <small class="text-warning">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Backend performance APIs not implemented. Displaying demo KPI values and placeholder charts for UI demonstration.
+              </small>
             </div>
             <div class="d-flex gap-2">
               <select 
@@ -164,10 +172,13 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
                 </h5>
               </div>
               <div class="card-body text-center">
-                <div class="performance-gauge mb-3">
+                <div 
+                  class="performance-gauge mb-3"
+                  [class.loading]="loading"
+                  [style.--performance-percentage]="getOverallPerformanceScore() + '%'">
                   <div class="performance-score">
-                    <h2 class="text-success">{{ getOverallPerformanceScore() }}</h2>
-                    <p class="text-muted">Overall Score</p>
+                    <h2 class="text-success mb-0">{{ getOverallPerformanceScore() }}%</h2>
+                    <small class="text-muted">Overall</small>
                   </div>
                 </div>
                 <div class="performance-breakdown">
@@ -338,20 +349,31 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
       margin: 0 auto;
       border: 8px solid #e9ecef;
       border-radius: 50%;
-      border-top-color: #28a745;
-      animation: spin 2s linear infinite;
+      background: conic-gradient(#28a745 0% var(--performance-percentage, 75%), #e9ecef var(--performance-percentage, 75%) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     
     .performance-score {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+      background: white;
+      border-radius: 50%;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+    .performance-gauge.loading {
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
     }
     
     .recommendations .alert {
@@ -452,18 +474,18 @@ export class PerformanceMetricsComponent implements OnInit, OnDestroy {
       }
     }
     
-    // Default values for when data is not available
+    // Default values for when data is not available (demo values for better UX)
     const defaultValues: { [key: string]: number } = {
-      booking_completion_rate: 0.0,
-      average_response_time: 0,
-      customer_satisfaction: 0.0,
-      system_uptime: 0.0,
-      efficiency_score: 0,
-      reliability_score: 0,
-      peak_hour_efficiency: 0.0,
-      off_peak_utilization: 0.0,
-      avg_booking_duration: 0,
-      user_retention_rate: 0.0
+      booking_completion_rate: 0.87,
+      average_response_time: 245,
+      customer_satisfaction: 4.2,
+      system_uptime: 0.998,
+      efficiency_score: 82,
+      reliability_score: 94,
+      peak_hour_efficiency: 0.89,
+      off_peak_utilization: 0.45,
+      avg_booking_duration: 125,
+      user_retention_rate: 0.73
     };
     
     return defaultValues[key] || 0;
@@ -472,13 +494,13 @@ export class PerformanceMetricsComponent implements OnInit, OnDestroy {
   /**
    * Calculate overall performance score
    */
-  getOverallPerformanceScore(): string {
+  getOverallPerformanceScore(): number {
     const efficiency = this.getKPI('efficiency_score');
     const reliability = this.getKPI('reliability_score');
     const satisfaction = this.getKPI('customer_satisfaction') * 20; // Convert to 100 scale
     
     const score = (efficiency + reliability + satisfaction) / 3;
-    return score.toFixed(0);
+    return Math.round(score);
   }
 
   /**

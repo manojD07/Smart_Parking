@@ -25,8 +25,16 @@ import { ChartPlaceholderComponent } from './shared/chart-placeholder.component'
               <h3>
                 <i class="fas fa-chart-area me-2 text-info"></i>
                 Occupancy & Utilization Analytics
+                <span class="badge bg-warning text-dark ms-2">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Demo Data
+                </span>
               </h3>
               <p class="text-muted mb-0">Monitor space utilization and occupancy patterns</p>
+              <small class="text-warning">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Backend APIs for occupancy/utilization data are not yet implemented. Showing demo interface with placeholder charts.
+              </small>
             </div>
             <div class="d-flex gap-2">
               <select 

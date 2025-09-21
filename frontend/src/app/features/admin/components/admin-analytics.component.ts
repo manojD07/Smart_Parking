@@ -5,6 +5,9 @@ import { Subject, takeUntil } from 'rxjs';
 
 // Analytics Components
 import { SimpleRevenueAnalyticsComponent } from './analytics/simple-revenue-analytics.component';
+import { BookingAnalyticsComponent } from './analytics/booking-analytics.component';
+import { OccupancyAnalyticsComponent } from './analytics/occupancy-analytics.component';
+import { PerformanceMetricsComponent } from './analytics/performance-metrics.component';
 
 // Services
 import { AnalyticsService, AnalyticsOverview } from '../services/analytics.service';
@@ -12,7 +15,7 @@ import { AnalyticsService, AnalyticsOverview } from '../services/analytics.servi
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [CommonModule, FormsModule, SimpleRevenueAnalyticsComponent],
+  imports: [CommonModule, FormsModule, SimpleRevenueAnalyticsComponent, BookingAnalyticsComponent, OccupancyAnalyticsComponent, PerformanceMetricsComponent],
   template: `
     <div class="container-fluid mt-4">
       <!-- Header -->
@@ -113,48 +116,19 @@ import { AnalyticsService, AnalyticsOverview } from '../services/analytics.servi
 
         <!-- Booking Analytics Tab -->
         <div class="tab-pane fade" id="bookings" role="tabpanel">
-          <div class="text-center py-5">
-            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
-            <h5>Booking Analytics</h5>
-            <p class="text-muted">Component temporarily disabled - will be restored in next phase</p>
-          </div>
+          <app-booking-analytics></app-booking-analytics>
         </div>
 
         <!-- Occupancy & Utilization Tab -->
         <div class="tab-pane fade" id="occupancy" role="tabpanel">
-          <div class="text-center py-5">
-            <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
-            <h5>Occupancy & Utilization</h5>
-            <p class="text-muted">Component temporarily disabled - will be restored in next phase</p>
-          </div>
+          <app-occupancy-analytics></app-occupancy-analytics>
         </div>
 
         <!-- Performance Metrics Tab -->
         <div class="tab-pane fade" id="performance" role="tabpanel">
-          <div class="text-center py-5">
-            <i class="fas fa-tachometer-alt fa-3x text-muted mb-3"></i>
-            <h5>Performance Metrics</h5>
-            <p class="text-muted">Component temporarily disabled - will be restored in next phase</p>
-          </div>
+          <app-performance-metrics></app-performance-metrics>
         </div>
 
-        <!-- Overview Tab -->
-        <div class="tab-pane fade" id="overview" role="tabpanel">
-          <div class="text-center py-5">
-            <i class="fas fa-tachometer-alt fa-3x text-muted mb-3"></i>
-            <h5>System Overview</h5>
-            <p class="text-muted">Coming in Phase 3</p>
-          </div>
-        </div>
-
-        <!-- Parking Analytics Tab -->
-        <div class="tab-pane fade" id="parking" role="tabpanel">
-          <div class="text-center py-5">
-            <i class="fas fa-parking fa-3x text-muted mb-3"></i>
-            <h5>Parking Analytics</h5>
-            <p class="text-muted">Coming in future version</p>
-          </div>
-        </div>
       </div>
     </div>
   `,

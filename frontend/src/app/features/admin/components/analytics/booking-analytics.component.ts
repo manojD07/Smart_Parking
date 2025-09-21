@@ -26,8 +26,16 @@ import { PieChartComponent, PieChartData } from './shared/pie-chart.component';
               <h3>
                 <i class="fas fa-ticket-alt me-2 text-primary"></i>
                 Booking Analytics
+                <span class="badge bg-warning text-dark ms-2">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Demo Data
+                </span>
               </h3>
               <p class="text-muted mb-0">Track booking trends, patterns, and performance</p>
+              <small class="text-warning">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Currently displaying processed demo data from real bookings. Chart visualizations use placeholder components.
+              </small>
             </div>
             <div class="d-flex gap-2">
               <button 
