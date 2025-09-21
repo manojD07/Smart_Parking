@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { ParkingService } from '../services/parking.service';
 import { BookingService } from '../../booking/services/booking.service';
@@ -379,13 +379,38 @@ export class ParkingSearchComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private parkingService: ParkingService,
     private bookingService: BookingService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {
     this.searchForm = this.createSearchForm();
   }
 
   ngOnInit(): void {
     this.initializeForm();
+    
+    // Check for query parameters from dashboard search
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      if (params['autoSearch'] === 'true') {
+        // Auto-populate form with dashboard search data
+        this.searchForm.patchValue({
+          vehicleType: params['vehicleType'] || '',
+          location: params['currentLocation'] || '',
+          startTime: params['startTime'] || '',
+          endTime: params['endTime'] || ''
+        });
+        
+        if (params['lotId']) {
+          this.searchForm.patchValue({
+            lotId: params['lotId']
+          });
+        }
+        
+        // Trigger automatic search
+        setTimeout(() => {
+          this.onSearch();
+        }, 100);
+      }
+    });
   }
 
   ngOnDestroy(): void {

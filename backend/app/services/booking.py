@@ -969,6 +969,126 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
             self.logger.error("Failed to count allocations", slot_id=slot_id, error=str(e))
             return 0
     
+    async def check_in_booking(self, booking_id: UUID, user_id: UUID) -> bool:
+        """Check in to a booking."""
+        try:
+            # Get booking
+            booking = await self.booking_repository.get_by_id(booking_id, load_relationships=True)
+            if not booking:
+                raise NotFoundError("Booking not found")
+            
+            # Verify ownership
+            if booking.user_id != user_id:
+                raise UnauthorizedError("Not authorized to check in to this booking")
+            
+            # Verify booking can be checked in
+            now = datetime.now(timezone.utc)
+            start_time = booking.start_time
+            end_time = booking.end_time
+            
+            # Check timing (15 minutes before start until end time)
+            fifteen_minutes_before = start_time - timedelta(minutes=15)
+            
+            if now < fifteen_minutes_before:
+                raise BookingOperationError("Check-in not available yet. Available 15 minutes before booking start time.")
+            
+            if now > end_time:
+                raise BookingOperationError("Booking has expired. Cannot check in.")
+            
+            # Check status
+            if booking.status not in ['confirmed', 'pending']:
+                raise BookingOperationError(f"Cannot check in to booking with status: {booking.status}")
+            
+            if booking.check_in_time:
+                raise BookingOperationError("Already checked in")
+            
+            # Perform check-in
+            booking.check_in_time = now
+            booking.status = 'active'
+            
+            await self.booking_repository.update(
+                booking_id,
+                check_in_time=now,
+                status='active'
+            )
+            
+            self.logger.info(
+                "Booking checked in successfully",
+                booking_id=booking_id,
+                user_id=user_id,
+                check_in_time=now.isoformat()
+            )
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(
+                "Failed to check in booking",
+                booking_id=booking_id,
+                user_id=user_id,
+                exception=str(e)
+            )
+            raise
+
+    async def check_out_booking(self, booking_id: UUID, user_id: UUID) -> bool:
+        """Check out from a booking."""
+        try:
+            # Get booking
+            booking = await self.booking_repository.get_by_id(booking_id, load_relationships=True)
+            if not booking:
+                raise NotFoundError("Booking not found")
+            
+            # Verify ownership
+            if booking.user_id != user_id:
+                raise UnauthorizedError("Not authorized to check out from this booking")
+            
+            # Verify booking can be checked out
+            if booking.status != 'active':
+                raise BookingOperationError(f"Cannot check out from booking with status: {booking.status}")
+            
+            if not booking.check_in_time:
+                raise BookingOperationError("Must check in before checking out")
+            
+            if booking.check_out_time:
+                raise BookingOperationError("Already checked out")
+            
+            # Perform check-out
+            now = datetime.now(timezone.utc)
+            booking.check_out_time = now
+            booking.status = 'completed'
+            
+            await self.booking_repository.update(
+                booking_id,
+                check_out_time=now,
+                status='completed'
+            )
+            
+            # Release slot if still within booking window
+            if booking.slot_id and now <= booking.end_time:
+                await self.slot_state_service.release_slot(
+                    slot_id=booking.slot_id,
+                    booking_id=booking_id,
+                    reason="early_checkout"
+                )
+            
+            self.logger.info(
+                "Booking checked out successfully",
+                booking_id=booking_id,
+                user_id=user_id,
+                check_out_time=now.isoformat()
+            )
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(
+                "Failed to check out booking",
+                booking_id=booking_id,
+                user_id=user_id,
+                exception=str(e)
+            )
+            raise
+
     def _get_entity_name(self) -> str:
         """Get entity name for base service."""
         return "Booking"

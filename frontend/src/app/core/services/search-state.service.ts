@@ -4,9 +4,10 @@ import { ParkingLot } from '../models/parking.model';
 
 export interface SearchParams {
   vehicleType: string;
+  currentLocation?: string;
   lotId?: string;
   startTime: string;
-  duration: string;
+  endTime: string;
 }
 
 export interface SearchState {
@@ -144,7 +145,11 @@ export class SearchStateService {
     const queryParams = new URLSearchParams();
     queryParams.set('vehicleType', state.params.vehicleType);
     queryParams.set('startTime', state.params.startTime);
-    queryParams.set('duration', state.params.duration);
+    queryParams.set('endTime', state.params.endTime);
+    
+    if (state.params.currentLocation) {
+      queryParams.set('currentLocation', state.params.currentLocation);
+    }
     
     if (state.params.lotId) {
       queryParams.set('lotId', state.params.lotId);

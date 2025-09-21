@@ -37,26 +37,6 @@ import { ParkingLot } from '../../core/models/parking.model';
 
       <app-loading *ngIf="loading" message="Loading dashboard..."></app-loading>
 
-      <!-- Backend Status Alert -->
-      <div class="row mb-3" *ngIf="!loading && !backendAvailable">
-        <div class="col-12">
-          <div class="alert alert-warning alert-dismissible fade show">
-            <h6 class="alert-heading">
-              <i class="fas fa-exclamation-triangle me-2"></i>
-              Backend Not Available
-            </h6>
-            <p class="mb-2">
-              The Smart Parking backend service is currently not running. Some features may not work properly.
-            </p>
-            <hr>
-            <p class="mb-0">
-              <small>
-                <strong>To start the backend:</strong> Run <code>cd backend && python -m uvicorn app.main:app --reload</code>
-              </small>
-            </p>
-          </div>
-        </div>
-      </div>
 
       <div *ngIf="!loading">
         <!-- Main Dashboard Layout -->
@@ -82,11 +62,17 @@ import { ParkingLot } from '../../core/models/parking.model';
                       </select>
                     </div>
                     <div class="col-md-6 mb-3">
-                      <label for="location" class="form-label">Location</label>
-                      <select class="form-select" id="location" [(ngModel)]="quickSearchData.lotId" name="location">
-                        <option value="">Any Location</option>
-                        <option *ngFor="let lot of nearbyLots" [value]="lot.id">{{ lot.name }}</option>
-                      </select>
+                      <label for="currentLocation" class="form-label">Current Location</label>
+                      <div class="input-group">
+                        <input type="text" class="form-control" id="currentLocation" 
+                               [(ngModel)]="quickSearchData.currentLocation" name="currentLocation" 
+                               placeholder="Enter your current location" required>
+                        <button type="button" class="btn btn-outline-secondary" 
+                                (click)="getCurrentLocation()" [disabled]="gettingLocation">
+                          <span class="spinner-border spinner-border-sm me-1" *ngIf="gettingLocation"></span>
+                          <i class="fas fa-location-arrow" *ngIf="!gettingLocation"></i>
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div class="row">
@@ -97,14 +83,10 @@ import { ParkingLot } from '../../core/models/parking.model';
                              [min]="minStartTime" required>
                     </div>
                     <div class="col-md-6 mb-3">
-                      <label for="duration" class="form-label">Duration</label>
-                      <select class="form-select" id="duration" [(ngModel)]="quickSearchData.duration" name="duration" required>
-                        <option value="">Select Duration</option>
-                        <option value="30">30 minutes</option>
-                        <option value="60">1 hour</option>
-                        <option value="120">2 hours</option>
-                        <option value="240">4 hours</option>
-                      </select>
+                      <label for="endTime" class="form-label">End Time</label>
+                      <input type="datetime-local" class="form-control" id="endTime" 
+                             [(ngModel)]="quickSearchData.endTime" name="endTime" 
+                             [min]="quickSearchData.startTime || minStartTime" required>
                     </div>
                   </div>
                   <!-- Validation Error -->
@@ -192,70 +174,6 @@ import { ParkingLot } from '../../core/models/parking.model';
           </div>
         </div>
 
-        <!-- Search Results -->
-        <div class="row mb-4" *ngIf="searchPerformed">
-          <div class="col-12">
-            <div class="card">
-              <div class="card-header">
-                <h5 class="mb-0">
-                  <i class="fas fa-search me-2"></i>
-                  Search Results
-                </h5>
-              </div>
-              <div class="card-body">
-                <!-- Loading State -->
-                <div *ngIf="searchLoading" class="text-center py-4">
-                  <div class="spinner-border text-primary"></div>
-                  <p class="mt-2 mb-0">Searching for available parking...</p>
-                </div>
-
-                <!-- Error State -->
-                <div *ngIf="searchError && !searchLoading" class="alert alert-warning">
-                  <i class="fas fa-exclamation-triangle me-2"></i>
-                  {{ searchError }}
-                </div>
-
-                <!-- Results -->
-                <div *ngIf="searchResults.length > 0 && !searchLoading" class="row">
-                  <div class="col-md-6 mb-3" *ngFor="let lot of searchResults">
-                    <div class="card border-success">
-                      <div class="card-body">
-                        <h6 class="card-title">{{ lot.name }}</h6>
-                        <p class="card-text">
-                          <small class="text-muted">
-                            <i class="fas fa-map-marker-alt me-1"></i>{{ lot.address }}
-                          </small>
-                        </p>
-                        <div class="row">
-                          <div class="col-6">
-                            <small class="text-muted">Available Slots:</small>
-                            <div class="fw-bold text-success">{{ lot.available_car_slots || lot.available_bike_slots || 'Available' }}</div>
-                          </div>
-                          <div class="col-6">
-                            <small class="text-muted">Rate:</small>
-                            <div class="fw-bold">\${{ quickSearchData.vehicleType === 'car' ? lot.hourly_rate_car : lot.hourly_rate_bike }}/hr</div>
-                          </div>
-                        </div>
-                        <div class="mt-3">
-                          <button class="btn btn-primary btn-sm w-100" 
-                                  [routerLink]="['/booking', lot.id]"
-                                  [queryParams]="{
-                                    vehicleType: quickSearchData.vehicleType,
-                                    startTime: quickSearchData.startTime,
-                                    duration: quickSearchData.duration
-                                  }">
-                            <i class="fas fa-ticket-alt me-2"></i>
-                            Book Now
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         <!-- Active Bookings -->
         <div class="row mb-4" *ngIf="activeBookings.length > 0">
@@ -297,11 +215,18 @@ import { ParkingLot } from '../../core/models/parking.model';
                               View
                             </button>
                             <button 
-                              class="btn btn-sm btn-outline-warning me-1"
+                              class="btn btn-sm btn-success me-1"
+                              *ngIf="canCheckIn(booking)"
+                              (click)="checkInBooking(booking.id)"
+                            >
+                              <i class="fas fa-sign-in-alt me-1"></i>Check In
+                            </button>
+                            <button 
+                              class="btn btn-sm btn-warning me-1"
                               *ngIf="canCheckOut(booking)"
                               (click)="checkOutBooking(booking.id)"
                             >
-                              Check Out
+                              <i class="fas fa-sign-out-alt me-1"></i>Check Out
                             </button>
                             <button 
                               class="btn btn-sm btn-outline-danger"
@@ -361,23 +286,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   nearbyLots: ParkingLot[] = [];
   totalSpent = 0;
   loading = true;
-  backendAvailable = true;
   
   // Quick search form data
   quickSearchData = {
     vehicleType: '',
-    lotId: '',
+    currentLocation: '',
     startTime: '',
-    duration: ''
+    endTime: ''
   };
   minStartTime = '';
+  gettingLocation = false;
   
-  // Search results
-  searchResults: ParkingLot[] = [];
-  searchPerformed = false;
+  // Search form validation
   searchLoading = false;
-  searchError = '';
   validationError = '';
+  searchError = '';
   
   private destroy$ = new Subject<void>();
 
@@ -393,10 +316,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.currentUser = this.authService.currentUser;
     console.log('Dashboard: Current user:', this.currentUser);
     
-    // Initialize minimum start time (current time)
+    // Initialize default times (current time and 1 hour from now)
     const now = new Date();
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    
     this.minStartTime = now.toISOString().slice(0, 16);
     this.quickSearchData.startTime = this.minStartTime;
+    this.quickSearchData.endTime = oneHourLater.toISOString().slice(0, 16);
     
     // Add a timeout to prevent infinite loading
     setTimeout(() => {
@@ -415,36 +341,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadDashboardData(): void {
-    // Check if backend is running first
-    this.bookingService.getMyBookings({ limit: 1 })
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (bookings) => {
-          // Backend is working, load full data
-          console.log('Backend is running, loading full dashboard data');
-          this.loadFullDashboardData();
-        },
-        error: (error) => {
-          console.warn('Backend not accessible, showing demo dashboard:', error);
-          this.backendAvailable = false;
-          // Show demo/offline dashboard
-          this.loadDemoData();
-        }
-      });
+    // Load dashboard data directly
+    this.loadFullDashboardData();
   }
 
   private loadFullDashboardData(): void {
-    // Load bookings first
-    this.bookingService.getMyBookings({ limit: 20 })
+    // Load ALL bookings to match My Bookings page counts
+    this.bookingService.getMyBookings({ limit: 100 })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (bookings) => {
           console.log('Bookings loaded:', bookings);
           this.processBookingsData(bookings);
           this.loadParkingLots();
+          this.loadUserProfile(); // Load accurate total spent from user profile
         },
         error: (error) => {
           console.error('Error loading bookings:', error);
+          // Show empty state instead of demo data
           this.processBookingsData([]);
           this.loadParkingLots();
         }
@@ -468,30 +382,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
   }
 
-  private loadDemoData(): void {
-    // Show demo data when backend is not available
-    console.log('Loading demo dashboard data');
-    
-    // Demo bookings
-    this.activeBookings = [];
-    this.recentBookings = [];
-    this.nearbyLots = [];
-    this.totalSpent = 0;
-    
-    this.loading = false;
-  }
 
   private processBookingsData(bookings: Booking[]): void {
+    // Active bookings: confirmed or active status (matches My Bookings logic)
     this.activeBookings = bookings.filter(b => 
       ['confirmed', 'active'].includes(b.status)
     );
     
+    // Recent bookings: bookings created in the last 30 days, sorted by creation date
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
     this.recentBookings = bookings
+      .filter(b => new Date(b.created_at) >= thirtyDaysAgo)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     
+    // Calculate total spent from completed bookings (fallback if user profile fails)
     this.totalSpent = bookings
       .filter(b => b.status === 'completed')
       .reduce((sum, b) => sum + Number(b.total_amount), 0);
+  }
+
+  private loadUserProfile(): void {
+    // Load user profile to get accurate total spent (includes prepaid payments)
+    if (this.currentUser && this.currentUser.id) {
+      this.authService.getCurrentUser()
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (user) => {
+            if (user && user.total_spent !== undefined) {
+              this.totalSpent = Number(user.total_spent);
+              console.log('Total spent updated from user profile:', this.totalSpent);
+            }
+          },
+          error: (error) => {
+            console.warn('Failed to load user profile for total spent:', error);
+            // Keep the calculated value from bookings as fallback
+          }
+        });
+    }
   }
 
   formatDateTime(dateTime: string): string {
@@ -518,9 +447,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.bookingService.canCancelBooking(booking);
   }
 
+  canCheckIn(booking: Booking): boolean {
+    return this.bookingService.canCheckIn(booking);
+  }
+
   canCheckOut(booking: Booking): boolean {
-    // Can check out if booking is active and has been checked in
-    return booking.status === 'active' && !!booking.check_in_time;
+    return this.bookingService.canCheckOut(booking);
+  }
+
+  checkInBooking(bookingId: string): void {
+    if (confirm('Are you sure you want to check in to this booking?')) {
+      this.bookingService.checkInBooking(bookingId)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            alert('✅ Check-in successful!\n\nEnjoy your parking. Remember to check out when you leave.');
+            this.loadDashboardData(); // Reload data
+          },
+          error: (error) => {
+            console.error('Error checking in:', error);
+            alert('Failed to check in. Please try again or contact support.');
+          }
+        });
+    }
   }
 
   checkOutBooking(bookingId: string): void {
@@ -564,6 +513,49 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  getCurrentLocation(): void {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    this.gettingLocation = true;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        // Use coordinates as location (simple and reliable)
+        this.quickSearchData.currentLocation = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        this.gettingLocation = false;
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        this.gettingLocation = false;
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            alert('Location access denied. Please enable location permissions.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            alert('Location information is unavailable.');
+            break;
+          case error.TIMEOUT:
+            alert('Location request timed out.');
+            break;
+          default:
+            alert('An unknown error occurred while getting location.');
+            break;
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 minutes
+      }
+    );
+  }
+
   onQuickSearch(): void {
     // Clear previous errors
     this.validationError = '';
@@ -575,48 +567,55 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
     
+    if (!this.quickSearchData.currentLocation) {
+      this.validationError = 'Please enter your current location.';
+      return;
+    }
+    
     if (!this.quickSearchData.startTime) {
       this.validationError = 'Please select a start time.';
       return;
     }
     
-    if (!this.quickSearchData.duration) {
-      this.validationError = 'Please select a duration.';
+    if (!this.quickSearchData.endTime) {
+      this.validationError = 'Please select an end time.';
+      return;
+    }
+
+    // Validate that end time is after start time
+    const startTime = new Date(this.quickSearchData.startTime);
+    const endTime = new Date(this.quickSearchData.endTime);
+    
+    if (endTime <= startTime) {
+      this.validationError = 'End time must be after start time.';
       return;
     }
     
-    // Perform search directly
+    // Save search parameters and redirect to parking page
     this.searchLoading = true;
-    this.searchPerformed = true;
     
-    console.log('Performing quick search:', this.quickSearchData);
+    console.log('Redirecting to parking page with search data:', this.quickSearchData);
     
-    // Get all parking lots (for now, we'll do client-side filtering)
-    this.parkingService.getParkingLots({ is_active: true })
-    .pipe(takeUntil(this.destroy$))
-    .subscribe({
-      next: (results) => {
-        console.log('Search results:', results);
-        this.searchResults = results;
-        this.searchLoading = false;
-        
-        // Save search state for persistence
-        this.searchStateService.saveSearchState({
-          vehicleType: this.quickSearchData.vehicleType,
-          lotId: this.quickSearchData.lotId,
-          startTime: this.quickSearchData.startTime,
-          duration: this.quickSearchData.duration
-        }, results);
-        
-        if (results.length === 0) {
-          this.searchError = 'No parking lots found for your search criteria. Try different times or locations.';
-        }
-      },
-      error: (error) => {
-        console.error('Search error:', error);
-        this.searchError = 'Failed to search parking lots. Please try again.';
-        this.searchLoading = false;
-      }
-    });
+    // Save search state for the parking page to use
+    const searchParams = {
+      vehicleType: this.quickSearchData.vehicleType,
+      currentLocation: this.quickSearchData.currentLocation,
+      startTime: this.quickSearchData.startTime,
+      endTime: this.quickSearchData.endTime
+    };
+    
+    // Store search parameters temporarily for the parking page
+    sessionStorage.setItem('dashboardSearchParams', JSON.stringify(searchParams));
+    
+    // Navigate to parking page with query parameters
+    const queryParams: any = {
+      vehicleType: this.quickSearchData.vehicleType,
+      currentLocation: this.quickSearchData.currentLocation,
+      startTime: this.quickSearchData.startTime,
+      endTime: this.quickSearchData.endTime,
+      autoSearch: 'true'  // Flag to trigger automatic search
+    };
+    
+    this.router.navigate(['/parking'], { queryParams });
   }
 }

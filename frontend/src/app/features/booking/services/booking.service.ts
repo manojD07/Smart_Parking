@@ -169,4 +169,34 @@ export class BookingService extends BaseApiService {
   getSessionInfo(sessionId: string): Observable<any> {
     return this.get<any>(`/bookings/session/${sessionId}`);
   }
+
+  // ===== CHECK-IN/CHECK-OUT UTILITY METHODS =====
+
+  /**
+   * Check if booking can be checked in
+   */
+  canCheckIn(booking: Booking): boolean {
+    const now = new Date();
+    const startTime = new Date(booking.start_time);
+    const endTime = new Date(booking.end_time);
+    
+    // Can check in if:
+    // 1. Booking is confirmed or pending (prepaid system allows both)
+    // 2. Current time is within booking window or up to 15 minutes before
+    // 3. Not already checked in
+    const fifteenMinutesBefore = new Date(startTime.getTime() - 15 * 60 * 1000);
+    
+    return (booking.status === 'confirmed' || booking.status === 'pending') && 
+           now >= fifteenMinutesBefore && 
+           now <= endTime && 
+           !booking.check_in_time;
+  }
+
+  /**
+   * Check if booking can be checked out
+   */
+  canCheckOut(booking: Booking): boolean {
+    // Can check out if booking is active and has been checked in
+    return booking.status === 'active' && !!booking.check_in_time;
+  }
 }

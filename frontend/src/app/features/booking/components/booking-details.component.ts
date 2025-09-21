@@ -482,17 +482,11 @@ export class BookingDetailsComponent implements OnInit, OnDestroy {
   }
 
   canCheckIn(): boolean {
-    if (!this.booking) return false;
-    const now = new Date();
-    const startTime = parseBackendDate(this.booking.start_time);
-    const timeDiff = Math.abs(now.getTime() - startTime.getTime()) / (1000 * 60); // minutes
-    
-    return this.booking.status === 'confirmed' && timeDiff <= 30; // 30 minutes window
+    return this.booking ? this.bookingService.canCheckIn(this.booking) : false;
   }
 
   canCheckOut(): boolean {
-    if (!this.booking) return false;
-    return this.booking.status === 'active' && !!this.booking.check_in_time;
+    return this.booking ? this.bookingService.canCheckOut(this.booking) : false;
   }
 
   canModify(): boolean {
@@ -507,38 +501,46 @@ export class BookingDetailsComponent implements OnInit, OnDestroy {
 
   checkIn(): void {
     if (!this.booking) return;
-    
-    this.processing = true;
-    this.bookingService.checkInBooking(this.booking.id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.loadBookingDetails(); // Reload to get updated data
-          this.processing = false;
-        },
-        error: (error) => {
-          alert('Failed to check in: ' + error.message);
-          this.processing = false;
-        }
-      });
+
+    if (confirm('Are you sure you want to check in to this booking?')) {
+      this.processing = true;
+      this.bookingService.checkInBooking(this.booking.id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            alert('✅ Check-in successful!\\n\\nEnjoy your parking. Remember to check out when you leave.');
+            this.loadBookingDetails(); // Reload to update status
+            this.processing = false;
+          },
+          error: (error) => {
+            console.error('Error checking in:', error);
+            alert('Failed to check in. Please try again or contact support.');
+            this.processing = false;
+          }
+        });
+    }
   }
 
   checkOut(): void {
     if (!this.booking) return;
-    
-    this.processing = true;
-    this.bookingService.checkOutBooking(this.booking.id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.loadBookingDetails(); // Reload to get updated data
-          this.processing = false;
-        },
-        error: (error) => {
-          alert('Failed to check out: ' + error.message);
-          this.processing = false;
-        }
-      });
+
+    if (confirm('Are you sure you want to check out of this booking?')) {
+      this.processing = true;
+      this.bookingService.checkOutBooking(this.booking.id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            alert('✅ Check-out successful!\\n\\nThank you for using our parking service.');
+            this.loadBookingDetails(); // Reload to update status
+            this.processing = false;
+          },
+          error: (error) => {
+            console.error('Error checking out:', error);
+            alert('Failed to check out. Please try again or contact support.');
+            this.processing = false;
+          }
+        });
+    }
   }
 
   modifyBooking(): void {
@@ -580,6 +582,7 @@ export class BookingDetailsComponent implements OnInit, OnDestroy {
     // TODO: Implement contact support
     alert('Support contact feature coming soon!\\nFor immediate assistance, call: (555) 123-PARK');
   }
+
 
   goBack(): void {
     this.router.navigate(['/bookings']);

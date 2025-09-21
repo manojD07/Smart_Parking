@@ -248,6 +248,27 @@ import {
                       View Details
                     </button>
                     
+                    <!-- Check-in Button -->
+                    <button 
+                      class="btn btn-success btn-sm"
+                      *ngIf="canCheckIn(booking)"
+                      (click)="checkInBooking(booking.id)"
+                    >
+                      <i class="fas fa-sign-in-alt me-1"></i>
+                      Check In
+                    </button>
+
+                    <!-- Check-out Button -->
+                    <button 
+                      class="btn btn-warning btn-sm"
+                      *ngIf="canCheckOut(booking)"
+                      (click)="checkOutBooking(booking.id)"
+                    >
+                      <i class="fas fa-sign-out-alt me-1"></i>
+                      Check Out
+                    </button>
+
+                    
                     <div class="btn-group" role="group" *ngIf="canModifyBooking(booking)">
                       <button 
                         class="btn btn-outline-warning btn-sm"
@@ -266,24 +287,6 @@ import {
                         Cancel
                       </button>
                     </div>
-
-                    <button 
-                      class="btn btn-success btn-sm"
-                      *ngIf="canCheckIn(booking)"
-                      (click)="checkInBooking(booking.id)"
-                    >
-                      <i class="fas fa-sign-in-alt me-1"></i>
-                      Check In
-                    </button>
-
-                    <button 
-                      class="btn btn-warning btn-sm"
-                      *ngIf="canCheckOut(booking)"
-                      (click)="checkOutBooking(booking.id)"
-                    >
-                      <i class="fas fa-sign-out-alt me-1"></i>
-                      Check Out
-                    </button>
                   </div>
                 </div>
               </div>
@@ -495,15 +498,11 @@ export class BookingListComponent implements OnInit, OnDestroy {
   }
 
   canCheckIn(booking: Booking): boolean {
-    const now = new Date();
-    const startTime = parseBackendDate(booking.start_time);
-    const timeDiff = Math.abs(now.getTime() - startTime.getTime()) / (1000 * 60); // minutes
-    
-    return booking.status === 'confirmed' && timeDiff <= 30; // 30 minutes window
+    return this.bookingService.canCheckIn(booking);
   }
 
   canCheckOut(booking: Booking): boolean {
-    return booking.status === 'active' && !!booking.check_in_time;
+    return this.bookingService.canCheckOut(booking);
   }
 
   getTimeStatus(booking: Booking): string {
@@ -553,30 +552,39 @@ export class BookingListComponent implements OnInit, OnDestroy {
   }
 
   checkInBooking(bookingId: string): void {
-    this.bookingService.checkInBooking(bookingId)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.loadBookings(); // Reload bookings
-        },
-        error: (error) => {
-          alert('Failed to check in: ' + error.message);
-        }
-      });
+    if (confirm('Are you sure you want to check in to this booking?')) {
+      this.bookingService.checkInBooking(bookingId)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            alert('✅ Check-in successful!\n\nEnjoy your parking. Remember to check out when you leave.');
+            this.loadBookings(); // Reload bookings
+          },
+          error: (error) => {
+            console.error('Error checking in:', error);
+            alert('Failed to check in. Please try again or contact support.');
+          }
+        });
+    }
   }
 
   checkOutBooking(bookingId: string): void {
-    this.bookingService.checkOutBooking(bookingId)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.loadBookings(); // Reload bookings
-        },
-        error: (error) => {
-          alert('Failed to check out: ' + error.message);
-        }
-      });
+    if (confirm('Are you sure you want to check out of this booking?')) {
+      this.bookingService.checkOutBooking(bookingId)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            alert('✅ Check-out successful!\n\nThank you for using our parking service.');
+            this.loadBookings(); // Reload bookings
+          },
+          error: (error) => {
+            console.error('Error checking out:', error);
+            alert('Failed to check out. Please try again or contact support.');
+          }
+        });
+    }
   }
+
 
   getEmptyStateMessage(): string {
     switch (this.selectedFilter) {
