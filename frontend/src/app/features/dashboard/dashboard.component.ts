@@ -1,10 +1,12 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { AuthService } from '../auth/services/auth.service';
 import { BookingService } from '../booking/services/booking.service';
 import { ParkingService } from '../parking/services/parking.service';
+import { SearchStateService } from '../../core/services/search-state.service';
 import { LoadingComponent } from '../../shared/components/loading.component';
 import { User } from '../../core/models/user.model';
 import { Booking } from '../../core/models/booking.model';
@@ -13,7 +15,7 @@ import { ParkingLot } from '../../core/models/parking.model';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, LoadingComponent],
+  imports: [CommonModule, RouterModule, FormsModule, LoadingComponent],
   template: `
     <div class="container mt-4">
       <div class="row">
@@ -24,9 +26,9 @@ import { ParkingLot } from '../../core/models/parking.model';
               <p class="text-muted">Manage your parking reservations</p>
             </div>
             <div>
-              <button class="btn btn-primary" routerLink="/parking">
-                <i class="fas fa-plus me-2"></i>
-                New Booking
+              <button class="btn btn-primary" routerLink="/bookings">
+                <i class="fas fa-list me-2"></i>
+                View Bookings
               </button>
             </div>
           </div>
@@ -57,63 +59,197 @@ import { ParkingLot } from '../../core/models/parking.model';
       </div>
 
       <div *ngIf="!loading">
-        <!-- Quick Stats -->
+        <!-- Main Dashboard Layout -->
         <div class="row mb-4">
-          <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card bg-primary text-white">
+          <!-- Left Side: Compact Search Form -->
+          <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+              <div class="card-header">
+                <h5 class="mb-0">
+                  <i class="fas fa-search me-2"></i>
+                  Find Parking
+                </h5>
+              </div>
               <div class="card-body">
-                <div class="d-flex justify-content-between">
-                  <div>
-                    <h4 class="mb-0">{{ activeBookings.length }}</h4>
-                    <p class="mb-0">Active Bookings</p>
+                <form (ngSubmit)="onQuickSearch()" #searchForm="ngForm">
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="vehicleType" class="form-label">Vehicle Type</label>
+                      <select class="form-select" id="vehicleType" [(ngModel)]="quickSearchData.vehicleType" name="vehicleType" required>
+                        <option value="">Select Vehicle</option>
+                        <option value="car">Car</option>
+                        <option value="bike">Bike</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label for="location" class="form-label">Location</label>
+                      <select class="form-select" id="location" [(ngModel)]="quickSearchData.lotId" name="location">
+                        <option value="">Any Location</option>
+                        <option *ngFor="let lot of nearbyLots" [value]="lot.id">{{ lot.name }}</option>
+                      </select>
+                    </div>
                   </div>
-                  <div class="align-self-center">
-                    <i class="fas fa-ticket-alt fa-2x"></i>
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="startTime" class="form-label">Start Time</label>
+                      <input type="datetime-local" class="form-control" id="startTime" 
+                             [(ngModel)]="quickSearchData.startTime" name="startTime" 
+                             [min]="minStartTime" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label for="duration" class="form-label">Duration</label>
+                      <select class="form-select" id="duration" [(ngModel)]="quickSearchData.duration" name="duration" required>
+                        <option value="">Select Duration</option>
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="120">2 hours</option>
+                        <option value="240">4 hours</option>
+                      </select>
+                    </div>
+                  </div>
+                  <!-- Validation Error -->
+                  <div class="alert alert-danger mb-3" *ngIf="validationError">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    {{ validationError }}
+                  </div>
+                  
+                  <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                      <span class="spinner-border spinner-border-sm me-2" *ngIf="searchLoading"></span>
+                      <i class="fas fa-search me-2" *ngIf="!searchLoading"></i>
+                      {{ searchLoading ? 'Searching...' : 'Search Parking' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Side: Quick Stats -->
+          <div class="col-lg-6">
+            <div class="row">
+              <div class="col-md-6 col-sm-6 mb-3">
+                <div class="card bg-primary text-white">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                      <div>
+                        <h4 class="mb-0">{{ activeBookings.length }}</h4>
+                        <p class="mb-0">Active Bookings</p>
+                      </div>
+                      <div class="align-self-center">
+                        <i class="fas fa-ticket-alt fa-2x"></i>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6 col-sm-6 mb-3">
+                <div class="card bg-success text-white">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                      <div>
+                        <h4 class="mb-0">{{ recentBookings.length }}</h4>
+                        <p class="mb-0">Recent Bookings</p>
+                      </div>
+                      <div class="align-self-center">
+                        <i class="fas fa-history fa-2x"></i>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6 col-sm-6 mb-3">
+                <div class="card bg-info text-white">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                      <div>
+                        <h4 class="mb-0">{{ nearbyLots.length }}</h4>
+                        <p class="mb-0">Nearby Lots</p>
+                      </div>
+                      <div class="align-self-center">
+                        <i class="fas fa-map-marker-alt fa-2x"></i>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6 col-sm-6 mb-3">
+                <div class="card bg-warning text-white">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                      <div>
+                        <h4 class="mb-0">\${{ totalSpent.toFixed(2) }}</h4>
+                        <p class="mb-0">Total Spent</p>
+                      </div>
+                      <div class="align-self-center">
+                        <i class="fas fa-dollar-sign fa-2x"></i>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card bg-success text-white">
-              <div class="card-body">
-                <div class="d-flex justify-content-between">
-                  <div>
-                    <h4 class="mb-0">{{ recentBookings.length }}</h4>
-                    <p class="mb-0">Recent Bookings</p>
-                  </div>
-                  <div class="align-self-center">
-                    <i class="fas fa-history fa-2x"></i>
-                  </div>
-                </div>
+        </div>
+
+        <!-- Search Results -->
+        <div class="row mb-4" *ngIf="searchPerformed">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header">
+                <h5 class="mb-0">
+                  <i class="fas fa-search me-2"></i>
+                  Search Results
+                </h5>
               </div>
-            </div>
-          </div>
-          <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card bg-info text-white">
               <div class="card-body">
-                <div class="d-flex justify-content-between">
-                  <div>
-                    <h4 class="mb-0">{{ nearbyLots.length }}</h4>
-                    <p class="mb-0">Nearby Lots</p>
-                  </div>
-                  <div class="align-self-center">
-                    <i class="fas fa-map-marker-alt fa-2x"></i>
-                  </div>
+                <!-- Loading State -->
+                <div *ngIf="searchLoading" class="text-center py-4">
+                  <div class="spinner-border text-primary"></div>
+                  <p class="mt-2 mb-0">Searching for available parking...</p>
                 </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card bg-warning text-white">
-              <div class="card-body">
-                <div class="d-flex justify-content-between">
-                  <div>
-                    <h4 class="mb-0">\${{ totalSpent.toFixed(2) }}</h4>
-                    <p class="mb-0">Total Spent</p>
-                  </div>
-                  <div class="align-self-center">
-                    <i class="fas fa-dollar-sign fa-2x"></i>
+
+                <!-- Error State -->
+                <div *ngIf="searchError && !searchLoading" class="alert alert-warning">
+                  <i class="fas fa-exclamation-triangle me-2"></i>
+                  {{ searchError }}
+                </div>
+
+                <!-- Results -->
+                <div *ngIf="searchResults.length > 0 && !searchLoading" class="row">
+                  <div class="col-md-6 mb-3" *ngFor="let lot of searchResults">
+                    <div class="card border-success">
+                      <div class="card-body">
+                        <h6 class="card-title">{{ lot.name }}</h6>
+                        <p class="card-text">
+                          <small class="text-muted">
+                            <i class="fas fa-map-marker-alt me-1"></i>{{ lot.address }}
+                          </small>
+                        </p>
+                        <div class="row">
+                          <div class="col-6">
+                            <small class="text-muted">Available Slots:</small>
+                            <div class="fw-bold text-success">{{ lot.available_car_slots || lot.available_bike_slots || 'Available' }}</div>
+                          </div>
+                          <div class="col-6">
+                            <small class="text-muted">Rate:</small>
+                            <div class="fw-bold">\${{ quickSearchData.vehicleType === 'car' ? lot.hourly_rate_car : lot.hourly_rate_bike }}/hr</div>
+                          </div>
+                        </div>
+                        <div class="mt-3">
+                          <button class="btn btn-primary btn-sm w-100" 
+                                  [routerLink]="['/booking', lot.id]"
+                                  [queryParams]="{
+                                    vehicleType: quickSearchData.vehicleType,
+                                    startTime: quickSearchData.startTime,
+                                    duration: quickSearchData.duration
+                                  }">
+                            <i class="fas fa-ticket-alt me-2"></i>
+                            Book Now
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -185,38 +321,6 @@ import { ParkingLot } from '../../core/models/parking.model';
           </div>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="row mb-4">
-          <div class="col-12">
-            <div class="card">
-              <div class="card-header">
-                <h5 class="mb-0">Quick Actions</h5>
-              </div>
-              <div class="card-body">
-                <div class="row">
-                  <div class="col-md-4 mb-3">
-                    <button class="btn btn-outline-primary w-100" routerLink="/parking">
-                      <i class="fas fa-search fa-2x d-block mb-2"></i>
-                      Find Parking
-                    </button>
-                  </div>
-                  <div class="col-md-4 mb-3">
-                    <button class="btn btn-outline-success w-100" routerLink="/bookings">
-                      <i class="fas fa-list fa-2x d-block mb-2"></i>
-                      View Bookings
-                    </button>
-                  </div>
-                  <div class="col-md-4 mb-3">
-                    <button class="btn btn-outline-info w-100" routerLink="/profile">
-                      <i class="fas fa-user fa-2x d-block mb-2"></i>
-                      Edit Profile
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         <!-- Recent Activity -->
         <div class="row" *ngIf="recentBookings.length > 0">
@@ -259,17 +363,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loading = true;
   backendAvailable = true;
   
+  // Quick search form data
+  quickSearchData = {
+    vehicleType: '',
+    lotId: '',
+    startTime: '',
+    duration: ''
+  };
+  minStartTime = '';
+  
+  // Search results
+  searchResults: ParkingLot[] = [];
+  searchPerformed = false;
+  searchLoading = false;
+  searchError = '';
+  validationError = '';
+  
   private destroy$ = new Subject<void>();
 
   constructor(
     private authService: AuthService,
     private bookingService: BookingService,
-    private parkingService: ParkingService
+    private parkingService: ParkingService,
+    private searchStateService: SearchStateService,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
     this.currentUser = this.authService.currentUser;
     console.log('Dashboard: Current user:', this.currentUser);
+    
+    // Initialize minimum start time (current time)
+    const now = new Date();
+    this.minStartTime = now.toISOString().slice(0, 16);
+    this.quickSearchData.startTime = this.minStartTime;
     
     // Add a timeout to prevent infinite loading
     setTimeout(() => {
@@ -435,5 +562,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }
         });
     }
+  }
+
+  onQuickSearch(): void {
+    // Clear previous errors
+    this.validationError = '';
+    this.searchError = '';
+    
+    // Validate form
+    if (!this.quickSearchData.vehicleType) {
+      this.validationError = 'Please select a vehicle type.';
+      return;
+    }
+    
+    if (!this.quickSearchData.startTime) {
+      this.validationError = 'Please select a start time.';
+      return;
+    }
+    
+    if (!this.quickSearchData.duration) {
+      this.validationError = 'Please select a duration.';
+      return;
+    }
+    
+    // Perform search directly
+    this.searchLoading = true;
+    this.searchPerformed = true;
+    
+    console.log('Performing quick search:', this.quickSearchData);
+    
+    // Get all parking lots (for now, we'll do client-side filtering)
+    this.parkingService.getParkingLots({ is_active: true })
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (results) => {
+        console.log('Search results:', results);
+        this.searchResults = results;
+        this.searchLoading = false;
+        
+        // Save search state for persistence
+        this.searchStateService.saveSearchState({
+          vehicleType: this.quickSearchData.vehicleType,
+          lotId: this.quickSearchData.lotId,
+          startTime: this.quickSearchData.startTime,
+          duration: this.quickSearchData.duration
+        }, results);
+        
+        if (results.length === 0) {
+          this.searchError = 'No parking lots found for your search criteria. Try different times or locations.';
+        }
+      },
+      error: (error) => {
+        console.error('Search error:', error);
+        this.searchError = 'Failed to search parking lots. Please try again.';
+        this.searchLoading = false;
+      }
+    });
   }
 }

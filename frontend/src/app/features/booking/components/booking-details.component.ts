@@ -70,10 +70,10 @@ import {
                 </h5>
               </div>
               <div class="card-body">
-                <h5 class="card-title">{{ booking.lot?.name || 'Parking Lot' }}</h5>
+                <h5 class="card-title">{{ booking.lot_name || booking.lot?.name || 'Parking Lot' }}</h5>
                 <p class="card-text">
                   <i class="fas fa-location-arrow me-2"></i>
-                  {{ booking.lot?.address || 'Address not available' }}
+                  {{ booking.lot_address || booking.lot?.address || 'Address not available' }}
                 </p>
                 <div class="row">
                   <div class="col-md-6">

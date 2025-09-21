@@ -5,6 +5,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { ParkingService } from '../../parking/services/parking.service';
+import { SearchStateService } from '../../../core/services/search-state.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
 import { HybridDurationPickerComponent } from './hybrid-duration-picker.component';
 import { DemandIndicatorComponent } from '../../../shared/components/demand-indicator.component';
@@ -383,6 +384,7 @@ export class BookingFormComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private bookingService: BookingService,
     private parkingService: ParkingService,
+    private searchStateService: SearchStateService,
     private router: Router,
     private route: ActivatedRoute,
     private location: Location
@@ -722,8 +724,15 @@ export class BookingFormComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    // Use browser back to preserve search results and form state
-    this.location.back();
+    // Check if we have valid search results to return to
+    if (this.searchStateService.hasValidSearchResults()) {
+      // Navigate back to search results with preserved state
+      const searchUrl = this.searchStateService.getSearchResultsUrl();
+      this.router.navigateByUrl(searchUrl);
+    } else {
+      // No valid search state, go to parking search page
+      this.router.navigate(['/parking']);
+    }
   }
 
   isFieldInvalid(fieldName: string): boolean {

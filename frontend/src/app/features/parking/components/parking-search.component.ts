@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { ParkingService } from '../services/parking.service';
 import { BookingService } from '../../booking/services/booking.service';
+import { SearchStateService } from '../../../core/services/search-state.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
 import { ParkingLot, VehicleType, AvailabilityResponse } from '../../../core/models/parking.model';
 import { 

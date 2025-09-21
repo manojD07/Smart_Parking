@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { BookingService } from '../services/booking.service';
 import { LoadingComponent } from '../../../shared/components/loading.component';
@@ -13,7 +14,7 @@ import {
 @Component({
   selector: 'app-booking-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, LoadingComponent],
+  imports: [CommonModule, RouterModule, FormsModule, LoadingComponent],
   template: `
     <div class="container mt-4">
       <div class="row">
@@ -99,6 +100,70 @@ import {
         </div>
       </div>
 
+      <!-- Search and Sort Controls -->
+      <div class="row mb-4" *ngIf="!loading && allBookings.length > 0">
+        <div class="col-md-6">
+          <div class="input-group">
+            <span class="input-group-text">
+              <i class="fas fa-search"></i>
+            </span>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Search by lot name, vehicle number, or reference..."
+              [(ngModel)]="searchTerm"
+              (input)="onSearchChange()"
+            >
+            <button class="btn btn-outline-secondary" type="button" (click)="clearSearch()" *ngIf="searchTerm">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="row">
+            <div class="col-md-6">
+              <select class="form-select" [(ngModel)]="sortBy" (change)="onSortChange()">
+                <option value="created_at">Sort by Date</option>
+                <option value="start_time">Sort by Start Time</option>
+                <option value="lot_name">Sort by Location</option>
+                <option value="vehicle_number">Sort by Vehicle</option>
+                <option value="total_amount">Sort by Amount</option>
+                <option value="status">Sort by Status</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <select class="form-select" [(ngModel)]="sortOrder" (change)="onSortChange()">
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Summary -->
+      <div class="row mb-3" *ngIf="!loading && allBookings.length > 0">
+        <div class="col-12">
+          <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+              Showing {{ paginatedBookings.length }} of {{ filteredBookings.length }} bookings
+              <span *ngIf="searchTerm">(filtered from {{ allBookings.length }} total)</span>
+            </small>
+            <div class="btn-group btn-group-sm" role="group">
+              <button type="button" class="btn btn-outline-secondary" 
+                      [class.active]="itemsPerPage === 10" 
+                      (click)="changeItemsPerPage(10)">10</button>
+              <button type="button" class="btn btn-outline-secondary" 
+                      [class.active]="itemsPerPage === 25" 
+                      (click)="changeItemsPerPage(25)">25</button>
+              <button type="button" class="btn btn-outline-secondary" 
+                      [class.active]="itemsPerPage === 50" 
+                      (click)="changeItemsPerPage(50)">50</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <app-loading *ngIf="loading" message="Loading your bookings..."></app-loading>
 
       <!-- Error Message -->
@@ -108,9 +173,9 @@ import {
       </div>
 
       <!-- Bookings List -->
-      <div class="row" *ngIf="!loading && filteredBookings.length > 0">
+      <div class="row" *ngIf="!loading && paginatedBookings.length > 0">
         <div class="col-12">
-          <div class="card" *ngFor="let booking of filteredBookings">
+          <div class="card" *ngFor="let booking of paginatedBookings">
             <div class="card-body">
               <div class="row align-items-center">
                 <div class="col-lg-3">
@@ -132,6 +197,13 @@ import {
                     <div class="fw-bold">
                       {{ booking.vehicle_number }} 
                       <span class="text-capitalize">({{ booking.vehicle_type }})</span>
+                    </div>
+                  </div>
+                  <div class="mb-2">
+                    <small class="text-muted">Slot Number:</small>
+                    <div class="fw-bold">
+                      <i class="fas fa-parking me-1"></i>
+                      {{ booking.slot_number || 'Will be assigned' }}
                     </div>
                   </div>
                   <div class="mb-2">
@@ -242,6 +314,43 @@ import {
         </div>
       </div>
 
+      <!-- Pagination -->
+      <div class="row mt-4" *ngIf="!loading && filteredBookings.length > itemsPerPage">
+        <div class="col-12">
+          <nav aria-label="Bookings pagination">
+            <ul class="pagination justify-content-center">
+              <li class="page-item" [class.disabled]="currentPage === 1">
+                <button class="page-link" (click)="goToPage(1)" [disabled]="currentPage === 1">
+                  <i class="fas fa-angle-double-left"></i>
+                </button>
+              </li>
+              <li class="page-item" [class.disabled]="currentPage === 1">
+                <button class="page-link" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
+                  <i class="fas fa-angle-left"></i>
+                </button>
+              </li>
+              
+              <li class="page-item" 
+                  *ngFor="let page of getVisiblePages()" 
+                  [class.active]="page === currentPage">
+                <button class="page-link" (click)="goToPage(page)">{{ page }}</button>
+              </li>
+              
+              <li class="page-item" [class.disabled]="currentPage === totalPages">
+                <button class="page-link" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">
+                  <i class="fas fa-angle-right"></i>
+                </button>
+              </li>
+              <li class="page-item" [class.disabled]="currentPage === totalPages">
+                <button class="page-link" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages">
+                  <i class="fas fa-angle-double-right"></i>
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+
       <!-- Empty State -->
       <div class="row" *ngIf="!loading && filteredBookings.length === 0">
         <div class="col-12">
@@ -263,10 +372,22 @@ import {
 })
 export class BookingListComponent implements OnInit, OnDestroy {
   bookings: Booking[] = [];
+  allBookings: Booking[] = [];
   filteredBookings: Booking[] = [];
+  paginatedBookings: Booking[] = [];
   selectedFilter = 'all';
   loading = true;
   errorMessage = '';
+  
+  // Search and sorting
+  searchTerm = '';
+  sortBy = 'created_at';
+  sortOrder: 'asc' | 'desc' = 'desc';
+  
+  // Pagination
+  currentPage = 1;
+  itemsPerPage = 10;
+  totalPages = 1;
   
   bookingCounts = {
     all: 0,
@@ -305,11 +426,10 @@ export class BookingListComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (bookings) => {
-          this.bookings = bookings.sort((a, b) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
+          this.allBookings = bookings;
+          this.bookings = [...bookings];
           this.calculateBookingCounts();
-          this.filterBookings(this.selectedFilter);
+          this.applyFiltersAndSorting();
           this.loading = false;
         },
         error: (error) => {
@@ -331,25 +451,8 @@ export class BookingListComponent implements OnInit, OnDestroy {
 
   filterBookings(filter: string): void {
     this.selectedFilter = filter;
-    
-    switch (filter) {
-      case 'active':
-        this.filteredBookings = this.bookings.filter(b => 
-          ['confirmed', 'active'].includes(b.status)
-        );
-        break;
-      case 'upcoming':
-        this.filteredBookings = this.bookings.filter(b => this.isUpcoming(b));
-        break;
-      case 'completed':
-        this.filteredBookings = this.bookings.filter(b => b.status === 'completed');
-        break;
-      case 'cancelled':
-        this.filteredBookings = this.bookings.filter(b => b.status === 'cancelled');
-        break;
-      default:
-        this.filteredBookings = [...this.bookings];
-    }
+    this.currentPage = 1; // Reset to first page when filtering
+    this.applyFiltersAndSorting();
   }
 
   private isUpcoming(booking: Booking): boolean {
@@ -493,5 +596,151 @@ export class BookingListComponent implements OnInit, OnDestroy {
       case 'cancelled': return 'You don\'t have any cancelled bookings.';
       default: return 'You haven\'t made any parking bookings yet. Start by finding a parking spot!';
     }
+  }
+
+  // Search, Sort, and Pagination Methods
+  onSearchChange(): void {
+    this.currentPage = 1; // Reset to first page when searching
+    this.applyFiltersAndSorting();
+  }
+
+  clearSearch(): void {
+    this.searchTerm = '';
+    this.onSearchChange();
+  }
+
+  onSortChange(): void {
+    this.currentPage = 1; // Reset to first page when sorting
+    this.applyFiltersAndSorting();
+  }
+
+  changeItemsPerPage(items: number): void {
+    this.itemsPerPage = items;
+    this.currentPage = 1; // Reset to first page
+    this.applyFiltersAndSorting();
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+      this.updatePagination();
+    }
+  }
+
+  getVisiblePages(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    const half = Math.floor(maxVisible / 2);
+    
+    let start = Math.max(1, this.currentPage - half);
+    let end = Math.min(this.totalPages, start + maxVisible - 1);
+    
+    // Adjust start if we're near the end
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
+  }
+
+  private applyFiltersAndSorting(): void {
+    // Start with all bookings
+    let filtered = [...this.allBookings];
+
+    // Apply status filter
+    if (this.selectedFilter !== 'all') {
+      filtered = this.getFilteredBookings(filtered, this.selectedFilter);
+    }
+
+    // Apply search filter
+    if (this.searchTerm.trim()) {
+      const searchLower = this.searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(booking => 
+        (booking.lot_name || booking.lot?.name || '').toLowerCase().includes(searchLower) ||
+        booking.vehicle_number.toLowerCase().includes(searchLower) ||
+        booking.booking_reference.toLowerCase().includes(searchLower) ||
+        (booking.lot_address || booking.lot?.address || '').toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply sorting
+    filtered = this.sortBookings(filtered);
+
+    this.filteredBookings = filtered;
+    this.updatePagination();
+  }
+
+  private getFilteredBookings(bookings: Booking[], filter: string): Booking[] {
+    switch (filter) {
+      case 'active':
+        return bookings.filter(b => ['confirmed', 'active'].includes(b.status));
+      case 'upcoming':
+        return bookings.filter(b => b.status === 'pending');
+      case 'completed':
+        return bookings.filter(b => b.status === 'completed');
+      case 'cancelled':
+        return bookings.filter(b => b.status === 'cancelled');
+      default:
+        return bookings;
+    }
+  }
+
+  private sortBookings(bookings: Booking[]): Booking[] {
+    return bookings.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (this.sortBy) {
+        case 'created_at':
+          aValue = new Date(a.created_at);
+          bValue = new Date(b.created_at);
+          break;
+        case 'start_time':
+          aValue = new Date(a.start_time);
+          bValue = new Date(b.start_time);
+          break;
+        case 'lot_name':
+          aValue = (a.lot_name || a.lot?.name || '').toLowerCase();
+          bValue = (b.lot_name || b.lot?.name || '').toLowerCase();
+          break;
+        case 'vehicle_number':
+          aValue = a.vehicle_number.toLowerCase();
+          bValue = b.vehicle_number.toLowerCase();
+          break;
+        case 'total_amount':
+          aValue = a.total_amount;
+          bValue = b.total_amount;
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        default:
+          aValue = new Date(a.created_at);
+          bValue = new Date(b.created_at);
+      }
+
+      if (aValue < bValue) return this.sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return this.sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  private updatePagination(): void {
+    this.totalPages = Math.ceil(this.filteredBookings.length / this.itemsPerPage);
+    
+    // Ensure current page is valid
+    if (this.currentPage > this.totalPages && this.totalPages > 0) {
+      this.currentPage = this.totalPages;
+    }
+    
+    // Calculate paginated bookings
+    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+    const endIndex = startIndex + this.itemsPerPage;
+    this.paginatedBookings = this.filteredBookings.slice(startIndex, endIndex);
   }
 }
