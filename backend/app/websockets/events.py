@@ -389,6 +389,28 @@ class WebSocketEventFactory:
                 .message("Server heartbeat")
                 .expires_in_minutes(1)
                 .build())
+    
+    @staticmethod
+    def create_user_notification(user_id: str, notification_data: Dict[str, Any]) -> WebSocketEvent:
+        """Create user notification event."""
+        return (WebSocketEventBuilder()
+                .event_type(WebSocketEventType.USER_NOTIFICATION)
+                .priority(WebSocketEventPriority.NORMAL)
+                .source("notification_service")
+                .target_user(user_id)
+                .data({
+                    "notification_id": notification_data.get("id"),
+                    "notification_type": notification_data.get("type"),
+                    "title": notification_data.get("title"),
+                    "message": notification_data.get("message"),
+                    "priority": notification_data.get("priority", "normal"),
+                    "booking_id": notification_data.get("booking_id"),
+                    "lot_id": notification_data.get("lot_id"),
+                    "metadata": notification_data.get("metadata"),
+                    "created_at": notification_data.get("created_at")
+                })
+                .message(notification_data.get("message", "New notification"))
+                .build())
 
 
 # Pydantic models for API serialization

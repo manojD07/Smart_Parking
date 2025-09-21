@@ -84,6 +84,13 @@ celery_app.conf.update(
             "schedule": crontab(hour=1, minute=0),  # Daily at 1 AM
             "options": {"queue": "maintenance"}
         },
+        
+        # Check for started bookings needing check-in prompts every 2 minutes
+        "check-started-bookings-checkin": {
+            "task": "app.tasks.booking_tasks.check_started_bookings_for_checkin_prompt",
+            "schedule": crontab(minute="*/2"),  # Every 2 minutes
+            "options": {"queue": "booking"}
+        },
     },
 )
 

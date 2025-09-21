@@ -382,6 +382,44 @@ class WebSocketManager:
         
         return sent_count
     
+    async def send_user_notification(self, user_id: str, notification_data: Dict[str, Any]) -> int:
+        """
+        Send a user notification via WebSocket.
+        
+        Args:
+            user_id: Target user ID
+            notification_data: Notification data to send
+            
+        Returns:
+            Number of connections the notification was sent to
+        """
+        try:
+            # Create a user notification event
+            event = WebSocketEventFactory.create_user_notification(
+                user_id=user_id,
+                notification_data=notification_data
+            )
+            
+            # Send to all user connections
+            sent_count = await self.send_to_user(user_id, event)
+            
+            logger.info(
+                "User notification sent via WebSocket",
+                user_id=user_id,
+                notification_id=notification_data.get("id"),
+                sent_to_connections=sent_count
+            )
+            
+            return sent_count
+            
+        except Exception as e:
+            logger.error(
+                "Failed to send user notification via WebSocket",
+                user_id=user_id,
+                error=str(e)
+            )
+            return 0
+    
     async def send_to_role(self, role: str, event: WebSocketEvent) -> int:
         """
         Send event to all connections with a specific role.

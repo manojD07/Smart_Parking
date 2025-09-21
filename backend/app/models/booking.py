@@ -129,6 +129,13 @@ class Booking(BaseModel):
         back_populates="booking",
         lazy="select"
     )
+    notifications = relationship(
+        "Notification",
+        back_populates="booking",
+        cascade="all, delete-orphan",
+        lazy="select",
+        order_by="desc(Notification.created_at)"
+    )
     
     # Constraints and Indexes
     __table_args__ = (

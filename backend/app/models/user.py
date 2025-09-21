@@ -68,6 +68,13 @@ class User(BaseModel):
         cascade="all, delete-orphan",
         lazy="select"
     )
+    notifications = relationship(
+        "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="select",
+        order_by="desc(Notification.created_at)"
+    )
     
     # Indexes
     __table_args__ = (

@@ -160,6 +160,48 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                         confidence_score=allocation_result.confidence_score
                     )
                     
+                    # Send immediate booking created notification (simplified approach)
+                    try:
+                        from sqlalchemy import text
+                        import json
+                        
+                        # Create notification directly via SQL to avoid service issues
+                        notification_sql = text("""
+                            INSERT INTO notifications (user_id, type, priority, title, message, is_read, is_sent, send_websocket, booking_id, lot_id, notification_metadata)
+                            VALUES (:user_id, 'booking_confirmation', 'normal', :title, :message, false, true, true, :booking_id, :lot_id, :metadata)
+                        """)
+                        
+                        # Get booking with relationships for notification
+                        booking_with_relations = await self.booking_repository.get_by_id(booking.id, load_relationships=True)
+                        lot_name = booking_with_relations.lot.name if booking_with_relations else "Parking Lot"
+                        
+                        notification_data = {
+                            "user_id": str(user_id),
+                            "title": "Booking Created Successfully",
+                            "message": f"Your parking booking at {lot_name} has been created successfully. Booking ID: {booking_reference}",
+                            "booking_id": str(booking.id),
+                            "lot_id": str(lot_id),
+                            "metadata": json.dumps({
+                                "booking_reference": booking_reference,
+                                "lot_name": lot_name,
+                                "start_time": start_time.isoformat(),
+                                "end_time": end_time.isoformat(),
+                                "total_amount": float(pricing_info["total_amount"]),
+                                "vehicle_type": vehicle_type.value,
+                                "slot_number": allocation_result.slot.slot_number
+                            })
+                        }
+                        
+                        await self.session.execute(notification_sql, notification_data)
+                        # Note: commit will happen as part of the transaction
+                        
+                        self.logger.info("Booking creation notification sent (direct SQL)", booking_id=booking.id)
+                        
+                    except Exception as e:
+                        # Don't fail booking creation if notification fails
+                        self.logger.error("Failed to send booking creation notification", 
+                                        booking_id=booking.id, error=str(e))
+                    
                     return booking
                 
                 return await self.execute_in_transaction(_create_booking_operation)
@@ -455,6 +497,21 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
                                    user_id=booking.user_id, 
                                    amount=booking.total_amount,
                                    new_total=booking.user.total_spent)
+                
+                # Schedule booking notifications after confirmation
+                try:
+                    from app.services.notification_scheduler import NotificationScheduler
+                    
+                    # Use the new notification scheduler for immediate setup
+                    notification_scheduler = NotificationScheduler(self.session)
+                    await notification_scheduler.schedule_booking_notifications(booking)
+                    
+                    self.logger.info("Booking notifications scheduled", booking_id=booking_id)
+                    
+                except Exception as e:
+                    # Don't fail the booking confirmation if notification scheduling fails
+                    self.logger.error("Failed to schedule booking notifications", 
+                                    booking_id=booking_id, error=str(e))
                 
                 self.logger.info("Booking confirmed after payment", booking_id=booking_id)
                 return True

@@ -4,11 +4,12 @@ import { RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { AuthService } from '../../features/auth/services/auth.service';
 import { User } from '../../core/models/user.model';
+import { NotificationBellComponent } from './notification-bell.component';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, NotificationBellComponent],
   template: `
       <nav class="navbar navbar-expand-lg navbar-dark fixed-top" style="background: linear-gradient(135deg, #4e73df 0%, #224abe 100%) !important; min-height: 60px; z-index: 1030;">
       <div class="container">
@@ -97,6 +98,11 @@ import { User } from '../../core/models/user.model';
           </ul>
 
           <ul class="navbar-nav">
+            <!-- Notification Bell -->
+            <li class="nav-item" *ngIf="isAuthenticated && currentUser">
+              <app-notification-bell></app-notification-bell>
+            </li>
+            
             <!-- User Profile Link -->
             <li class="nav-item" *ngIf="isAuthenticated && currentUser">
               <a class="nav-link" routerLink="/profile" routerLinkActive="active">
