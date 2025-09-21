@@ -42,4 +42,8 @@ export class ChartPlaceholderComponent {
   @Input() icon: string = 'fa-chart-bar';
   @Input() dataPoints: number = 0;
   @Input() showComingSoon: boolean = true;
+  @Input() data: any[] = [];
+  @Input() type: string = 'bar';
+  @Input() height: string = '200px';
+  @Input() options: any = {};
 }

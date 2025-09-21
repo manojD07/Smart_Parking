@@ -48,4 +48,14 @@ export class AdminService extends BaseApiService {
   getDashboardData(): Observable<DashboardResponse> {
     return this.get<DashboardResponse>('/admin/dashboard');
   }
+
+  // User Statistics API
+  getUserStatistics(): Observable<{
+    total_users: number;
+    active_users: number;
+    inactive_users: number;
+    admin_users: number;
+  }> {
+    return this.get('/admin/users/statistics');
+  }
 }

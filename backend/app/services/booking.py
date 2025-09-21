@@ -1089,6 +1089,41 @@ class BookingService(BaseService[Booking, BookingRepository], TransactionalServi
             )
             raise
 
+    async def count_bookings_in_period(self, start_time: datetime, end_time: datetime) -> int:
+        """Count total bookings in the specified time period."""
+        try:
+            # Use repository to count bookings in period
+            from sqlalchemy import select, func, and_
+            from app.models.booking import Booking
+            
+            query = select(func.count(Booking.id)).where(
+                and_(
+                    Booking.created_at >= start_time,
+                    Booking.created_at <= end_time
+                )
+            )
+            
+            result = await self.session.execute(query)
+            count = result.scalar() or 0
+            
+            self.logger.info(
+                "Counted bookings in period",
+                start_time=start_time,
+                end_time=end_time,
+                count=count
+            )
+            
+            return count
+            
+        except Exception as e:
+            self.logger.error(
+                "Failed to count bookings in period",
+                start_time=start_time,
+                end_time=end_time,
+                error=str(e)
+            )
+            return 0
+
     def _get_entity_name(self) -> str:
         """Get entity name for base service."""
         return "Booking"

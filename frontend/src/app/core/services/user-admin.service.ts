@@ -172,21 +172,22 @@ export class UserAdminService extends BaseApiService {
   getAdminActionMessage(
     action: 'make_admin' | 'remove_admin',
     targetUser: User,
-    validation: AdminValidationResult
+    validation: AdminValidationResult | null
   ): { title: string; message: string; warnings: string[] } {
     const userName = `${targetUser.first_name} ${targetUser.last_name}`;
+    const warnings = validation?.warnings || [];
 
     if (action === 'make_admin') {
       return {
         title: 'Make User Admin?',
         message: `Are you sure you want to give ${userName} administrative privileges?`,
-        warnings: validation.warnings
+        warnings: warnings
       };
     } else {
       return {
         title: 'Remove Admin Privileges?',
         message: `Are you sure you want to remove administrative privileges from ${userName}?`,
-        warnings: validation.warnings
+        warnings: warnings
       };
     }
   }

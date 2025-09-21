@@ -55,10 +55,10 @@ import { PieChartComponent, PieChartData } from './shared/pie-chart.component';
                 <div class="col-md-3">
                   <label class="form-label fw-semibold">Date Range</label>
                   <select class="form-select" [(ngModel)]="selectedPeriod" (ngModelChange)="onPeriodChange()">
-                    <option value="today">Today</option>
-                    <option value="week">Last 7 Days</option>
-                    <option value="month">Last 30 Days</option>
-                    <option value="year">Last Year</option>
+                    <option value="daily">Today</option>
+                    <option value="weekly">Last 7 Days</option>
+                    <option value="monthly">Last 30 Days</option>
+                    <option value="yearly">Last Year</option>
                     <option value="custom">Custom Range</option>
                   </select>
                 </div>
@@ -425,7 +425,7 @@ export class BookingAnalyticsComponent implements OnInit {
   parkingLots: ParkingLot[] = [];
 
   // Filters
-  selectedPeriod: string = 'month';
+  selectedPeriod: string = 'monthly';
   selectedLotId: string = '';
   customStartDate: string = '';
   customEndDate: string = '';

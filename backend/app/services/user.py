@@ -59,6 +59,48 @@ class UserService(BaseService[User, UserRepository]):
             is_active=is_active
         )
     
+    async def count(
+        self,
+        is_admin: Optional[bool] = None,
+        is_active: Optional[bool] = None
+    ) -> int:
+        """Count users with optional filters."""
+        try:
+            from sqlalchemy import select, func, and_
+            from app.models.user import User
+            
+            query = select(func.count(User.id))
+            conditions = []
+            
+            if is_admin is not None:
+                conditions.append(User.is_admin == is_admin)
+            if is_active is not None:
+                conditions.append(User.is_active == is_active)
+            
+            if conditions:
+                query = query.where(and_(*conditions))
+            
+            result = await self.session.execute(query)
+            count = result.scalar() or 0
+            
+            self.logger.info(
+                "Counted users",
+                is_admin=is_admin,
+                is_active=is_active,
+                count=count
+            )
+            
+            return count
+            
+        except Exception as e:
+            self.logger.error(
+                "Failed to count users",
+                is_admin=is_admin,
+                is_active=is_active,
+                error=str(e)
+            )
+            return 0
+    
     def _get_entity_name(self) -> str:
         """Get entity name for base service."""
         return "User"

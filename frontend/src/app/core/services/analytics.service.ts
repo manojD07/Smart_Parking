@@ -648,31 +648,31 @@ export class AnalyticsService extends BaseApiService {
   /**
    * Get date range for common periods
    */
-  getDateRange(period: 'today' | 'week' | 'month' | 'year'): { start: string; end: string } {
+  getDateRange(period: 'daily' | 'weekly' | 'monthly' | 'yearly'): { start: string; end: string } {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     switch (period) {
-      case 'today':
+      case 'daily':
         return {
           start: today.toISOString().split('T')[0],
           end: today.toISOString().split('T')[0]
         };
-      case 'week':
+      case 'weekly':
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - 7);
         return {
           start: weekStart.toISOString().split('T')[0],
           end: today.toISOString().split('T')[0]
         };
-      case 'month':
+      case 'monthly':
         const monthStart = new Date(today);
         monthStart.setDate(today.getDate() - 30);
         return {
           start: monthStart.toISOString().split('T')[0],
           end: today.toISOString().split('T')[0]
         };
-      case 'year':
+      case 'yearly':
         const yearStart = new Date(today);
         yearStart.setDate(today.getDate() - 365);
         return {

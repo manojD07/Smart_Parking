@@ -190,8 +190,8 @@ export class DemandIndicatorComponent implements OnInit, OnDestroy {
           console.error('Demand info error:', error);
           this.hasError = true;
           this.isLoading = false;
-          // Return mock data on error
-          return of(this.getMockDemandData());
+          // Return empty data on error
+          return of({ occupancy_rate: 0, demand_level: 'low' });
         })
       )
       .subscribe(response => {
@@ -294,13 +294,6 @@ export class DemandIndicatorComponent implements OnInit, OnDestroy {
     }
   }
 
-  private getMockDemandData(): any {
-    return {
-      occupancy_rate: 65,
-      weather: 'Clear',
-      events: false
-    };
-  }
 
   private setupAutoRefresh(): void {
     interval(this.config.refreshInterval * 1000)

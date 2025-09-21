@@ -2,14 +2,14 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { PaymentFormComponent } from './payment-form.component';
+// import { PaymentFormComponent } from './payment-form.component'; // Component deleted
 import { BookingService } from '../../booking/services/booking.service';
 import { Booking } from '../../../core/models/booking.model';
 
 @Component({
   selector: 'app-payment-page',
   standalone: true,
-  imports: [CommonModule, RouterModule, PaymentFormComponent],
+  imports: [CommonModule, RouterModule],
   template: `
     <div class="container mt-4">
       <!-- Loading State -->
@@ -117,13 +117,19 @@ import { Booking } from '../../../core/models/booking.model';
               </h5>
             </div>
             <div class="card-body">
-              <app-payment-form
-                [bookingId]="booking.id"
-                [bookingReference]="booking.booking_reference"
-                [amount]="booking.total_amount"
-                (paymentSuccess)="onPaymentSuccess($event)"
-                (paymentCancel)="onPaymentCancel()"
-              ></app-payment-form>
+              <div class="text-center py-5">
+                <i class="fas fa-credit-card fa-3x text-muted mb-3"></i>
+                <h5>Payment Processing</h5>
+                <p class="text-muted">Payment form component temporarily disabled - will be restored in next phase</p>
+                <div class="mt-4">
+                  <button class="btn btn-success me-2" (click)="onPaymentSuccess({transactionId: 'temp-' + getCurrentTimestamp()})">
+                    <i class="fas fa-check me-2"></i>Simulate Payment Success
+                  </button>
+                  <button class="btn btn-secondary" (click)="onPaymentCancel()">
+                    <i class="fas fa-times me-2"></i>Cancel Payment
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -313,5 +319,9 @@ export class PaymentPageComponent implements OnInit, OnDestroy {
     } else {
       return `${wholeHours} hour${wholeHours > 1 ? 's' : ''} ${minutes} minutes`;
     }
+  }
+
+  getCurrentTimestamp(): number {
+    return Date.now();
   }
 }

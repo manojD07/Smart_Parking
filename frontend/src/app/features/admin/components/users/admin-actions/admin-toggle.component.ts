@@ -306,12 +306,12 @@ export class AdminToggleComponent implements OnInit {
 
   getModalTitle(): string {
     const action = this.user.is_admin ? 'remove_admin' : 'make_admin';
-    return this.userAdminService.getAdminActionMessage(action, this.user, this.validation!).title;
+    return this.userAdminService.getAdminActionMessage(action, this.user, this.validation).title;
   }
 
   getConfirmationMessage(): string {
     const action = this.user.is_admin ? 'remove_admin' : 'make_admin';
-    return this.userAdminService.getAdminActionMessage(action, this.user, this.validation!).message;
+    return this.userAdminService.getAdminActionMessage(action, this.user, this.validation).message;
   }
 
   getModalIcon(): string {

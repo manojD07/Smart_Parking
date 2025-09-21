@@ -1,24 +1,126 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Subject, takeUntil } from 'rxjs';
 
-// Components
-import { RevenueAnalyticsComponent } from './analytics/revenue-analytics.component';
-import { BookingAnalyticsComponent } from './analytics/booking-analytics.component';
+// Components - Placeholder imports for deleted components
+// import { RevenueAnalyticsComponent } from './analytics/revenue-analytics.component';
+// import { BookingAnalyticsComponent } from './analytics/booking-analytics.component';
+// import { OccupancyAnalyticsComponent } from './analytics/occupancy-analytics.component';
+// import { PerformanceMetricsComponent } from './analytics/performance-metrics.component';
+// import { LoadingStateComponent } from './shared/loading-state.component';
+
+// Services
+import { AnalyticsService, AnalyticsOverview } from '../services/analytics.service';
 
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [CommonModule, RevenueAnalyticsComponent, BookingAnalyticsComponent],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="container-fluid mt-4">
       <!-- Header -->
       <div class="row mb-4">
-        <div class="col-12">
-          <h2>
-            <i class="fas fa-chart-bar me-2"></i>
-            Analytics Dashboard
-          </h2>
-          <p class="text-muted">Comprehensive business analytics and insights</p>
+        <div class="col-12 d-flex justify-content-between align-items-center">
+          <div>
+            <h2>
+              <i class="fas fa-chart-bar me-2"></i>
+              Analytics Dashboard
+            </h2>
+            <p class="text-muted">Comprehensive business analytics and insights</p>
+          </div>
+          <div class="d-flex gap-2">
+            <!-- Date Range Selector -->
+            <select 
+              class="form-select" 
+              [(ngModel)]="selectedPeriod" 
+              (change)="onPeriodChange()"
+              style="width: auto;">
+              <option value="weekly">Last 7 days</option>
+              <option value="monthly">Last 30 days</option>
+              <option value="quarterly">Last 3 months</option>
+              <option value="yearly">Last year</option>
+            </select>
+            <button 
+              class="btn btn-outline-primary" 
+              (click)="refreshAnalytics()"
+              [disabled]="loading">
+              <i class="fas fa-sync-alt me-1" [class.fa-spin]="loading"></i>
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3">Loading analytics data...</p>
+      </div>
+
+      <!-- Analytics Overview Cards -->
+      <div class="row mb-4" *ngIf="!loading && analyticsOverview">
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="card bg-primary text-white">
+            <div class="card-body">
+              <div class="d-flex justify-content-between">
+                <div>
+                  <h4 class="card-title">{{analyticsOverview.summary.total_bookings | number}}</h4>
+                  <p class="card-text">Total Bookings</p>
+                </div>
+                <div class="text-end">
+                  <i class="fas fa-ticket-alt fa-2x opacity-75"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="card bg-success text-white">
+            <div class="card-body">
+              <div class="d-flex justify-content-between">
+                <div>
+                  <h4 class="card-title">\${{analyticsOverview.summary.total_revenue | number:'1.2-2'}}</h4>
+                  <p class="card-text">Total Revenue</p>
+                </div>
+                <div class="text-end">
+                  <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="card bg-info text-white">
+            <div class="card-body">
+              <div class="d-flex justify-content-between">
+                <div>
+                  <h4 class="card-title">{{analyticsOverview.summary.utilization_rate | percent:'1.1-1'}}</h4>
+                  <p class="card-text">Utilization Rate</p>
+                </div>
+                <div class="text-end">
+                  <i class="fas fa-chart-pie fa-2x opacity-75"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="card bg-warning text-white">
+            <div class="card-body">
+              <div class="d-flex justify-content-between">
+                <div>
+                  <h4 class="card-title">{{analyticsOverview.summary.total_lots | number}}</h4>
+                  <p class="card-text">Active Parking Lots</p>
+                </div>
+                <div class="text-end">
+                  <i class="fas fa-parking fa-2x opacity-75"></i>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -53,25 +155,25 @@ import { BookingAnalyticsComponent } from './analytics/booking-analytics.compone
             <li class="nav-item" role="presentation">
               <button 
                 class="nav-link" 
-                id="overview-tab" 
+                id="occupancy-tab" 
                 data-bs-toggle="tab" 
-                data-bs-target="#overview" 
+                data-bs-target="#occupancy" 
                 type="button" 
                 role="tab">
-                <i class="fas fa-tachometer-alt me-2"></i>
-                Overview
+                <i class="fas fa-chart-area me-2"></i>
+                Occupancy & Utilization
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button 
                 class="nav-link" 
-                id="parking-tab" 
+                id="performance-tab" 
                 data-bs-toggle="tab" 
-                data-bs-target="#parking" 
+                data-bs-target="#performance" 
                 type="button" 
                 role="tab">
-                <i class="fas fa-parking me-2"></i>
-                Parking Analytics
+                <i class="fas fa-tachometer-alt me-2"></i>
+                Performance Metrics
               </button>
             </li>
           </ul>
@@ -82,12 +184,38 @@ import { BookingAnalyticsComponent } from './analytics/booking-analytics.compone
       <div class="tab-content" id="analyticsTabContent">
         <!-- Revenue Analytics Tab -->
         <div class="tab-pane fade show active" id="revenue" role="tabpanel">
-          <app-revenue-analytics></app-revenue-analytics>
+          <div class="text-center py-5">
+            <i class="fas fa-dollar-sign fa-3x text-muted mb-3"></i>
+            <h5>Revenue Analytics</h5>
+            <p class="text-muted">Component temporarily disabled - will be restored in next phase</p>
+          </div>
         </div>
 
         <!-- Booking Analytics Tab -->
         <div class="tab-pane fade" id="bookings" role="tabpanel">
-          <app-booking-analytics></app-booking-analytics>
+          <div class="text-center py-5">
+            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+            <h5>Booking Analytics</h5>
+            <p class="text-muted">Component temporarily disabled - will be restored in next phase</p>
+          </div>
+        </div>
+
+        <!-- Occupancy & Utilization Tab -->
+        <div class="tab-pane fade" id="occupancy" role="tabpanel">
+          <div class="text-center py-5">
+            <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
+            <h5>Occupancy & Utilization</h5>
+            <p class="text-muted">Component temporarily disabled - will be restored in next phase</p>
+          </div>
+        </div>
+
+        <!-- Performance Metrics Tab -->
+        <div class="tab-pane fade" id="performance" role="tabpanel">
+          <div class="text-center py-5">
+            <i class="fas fa-tachometer-alt fa-3x text-muted mb-3"></i>
+            <h5>Performance Metrics</h5>
+            <p class="text-muted">Component temporarily disabled - will be restored in next phase</p>
+          </div>
         </div>
 
         <!-- Overview Tab -->
@@ -152,11 +280,63 @@ import { BookingAnalyticsComponent } from './analytics/booking-analytics.compone
     }
   `]
 })
-export class AdminAnalyticsComponent implements OnInit {
+export class AdminAnalyticsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  
+  // Component state
+  loading = true;
+  selectedPeriod: 'weekly' | 'monthly' | 'quarterly' | 'yearly' = 'monthly';
+  
+  // Analytics data
+  analyticsOverview: AnalyticsOverview | null = null;
+  errorMessage = '';
 
-  constructor() {}
+  constructor(private analyticsService: AnalyticsService) {}
 
   ngOnInit(): void {
-    // Component initialization
+    this.loadAnalyticsData();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  /**
+   * Load analytics data based on selected period
+   */
+  loadAnalyticsData(): void {
+    this.loading = true;
+    this.errorMessage = '';
+    
+    const dateRange = this.analyticsService.getDateRange(this.selectedPeriod);
+    
+    this.analyticsService.getAnalyticsOverview(dateRange.start, dateRange.end)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (overview) => {
+          this.analyticsOverview = overview;
+          this.loading = false;
+        },
+        error: (error) => {
+          console.error('Failed to load analytics data:', error);
+          this.errorMessage = 'Failed to load analytics data. Please try again.';
+          this.loading = false;
+        }
+      });
+  }
+
+  /**
+   * Handle period change
+   */
+  onPeriodChange(): void {
+    this.loadAnalyticsData();
+  }
+
+  /**
+   * Refresh analytics data
+   */
+  refreshAnalytics(): void {
+    this.loadAnalyticsData();
   }
 }

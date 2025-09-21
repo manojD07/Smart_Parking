@@ -251,6 +251,36 @@ class ParkingService(BaseService[ParkingLot, ParkingLotRepository]):
             self.logger.error("Failed to check booking history", slot_id=slot_id, error=str(e))
             return True  # Err on the side of caution
     
+    async def count(self, is_active: bool = True) -> int:
+        """Count parking lots with optional filter."""
+        try:
+            # Use repository to count active parking lots
+            from sqlalchemy import select, func
+            from app.models.parking import ParkingLot
+            
+            query = select(func.count(ParkingLot.id))
+            if is_active:
+                query = query.where(ParkingLot.is_active == True)
+            
+            result = await self.session.execute(query)
+            count = result.scalar() or 0
+            
+            self.logger.info(
+                "Counted parking lots",
+                is_active=is_active,
+                count=count
+            )
+            
+            return count
+            
+        except Exception as e:
+            self.logger.error(
+                "Failed to count parking lots",
+                is_active=is_active,
+                error=str(e)
+            )
+            return 0
+    
     def _get_entity_name(self) -> str:
         """Get entity name for base service."""
         return "ParkingLot"
