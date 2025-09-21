@@ -445,6 +445,14 @@ export class GuestLandingPageComponent implements OnInit {
       if (this.searchResults.length === 0) {
         this.searchError = 'No parking lots found for your criteria. Try adjusting your search.';
       } else {
+        // Save search context for booking intent
+        this.guestService.setGuestSearchContext({
+          location: this.guestSearchData.location,
+          vehicleType: this.guestSearchData.vehicleType,
+          startTime: new Date(this.guestSearchData.startTime).toISOString(),
+          endTime: new Date(this.guestSearchData.endTime).toISOString()
+        });
+        
         // Auto-minimize search form after successful search
         this.isSearchFormMinimized = true;
       }
@@ -514,16 +522,25 @@ export class GuestLandingPageComponent implements OnInit {
   }
 
   onBookNow(lot: ParkingLot): void {
+    console.log('onBookNow called for lot:', lot.id);
+    
     // Save the current search context and selected lot
     const guestContext = this.guestService.getGuestSearchContext();
+    console.log('Guest context retrieved:', guestContext);
+    
     if (guestContext) {
-      this.guestService.createGuestBookingIntent({
+      const bookingIntent = {
         lotId: lot.id,
         location: guestContext.location,
         vehicleType: guestContext.vehicleType,
         startTime: guestContext.startTime,
         endTime: guestContext.endTime
-      });
+      };
+      console.log('Creating booking intent:', bookingIntent);
+      
+      this.guestService.createGuestBookingIntent(bookingIntent);
+    } else {
+      console.error('No guest context found! Cannot create booking intent.');
     }
 
     // Navigate to login with booking intent

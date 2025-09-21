@@ -100,7 +100,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   errorMessage = '';
   guestMessage = '';
   private destroy$ = new Subject<void>();
-  private returnUrl = '/user-dashboard';
+  private returnUrl = '/dashboard';
   private guestBookingNavigation: { path: string; queryParams: any } | null = null;
 
   constructor(
@@ -182,8 +182,12 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   private handlePostLoginGuestFlow(): void {
+    console.log('handlePostLoginGuestFlow called');
+    
     // Check if user has a pending guest booking intent
     const bookingIntent = this.guestService.getAndClearGuestBookingIntent();
+    console.log('Guest booking intent:', bookingIntent);
+    
     if (bookingIntent) {
       // Set up search results navigation with proper path and query params
       this.guestBookingNavigation = {
@@ -196,6 +200,7 @@ export class LoginComponent implements OnInit, OnDestroy {
           autoSearch: 'true'
         }
       };
+      console.log('Guest booking navigation set:', this.guestBookingNavigation);
       return;
     }
     

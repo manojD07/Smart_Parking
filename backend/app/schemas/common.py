@@ -40,8 +40,18 @@ class ErrorResponse(BaseResponse):
 class SuccessResponse(BaseResponse):
     """Success response schema."""
     
+    success: bool = Field(True, description="Success status")
     message: str = Field(..., description="Success message")
     data: Optional[Dict[str, Any]] = Field(None, description="Response data")
+
+
+class ApiResponse(BaseResponse, Generic[T]):
+    """Generic API response schema."""
+    
+    success: bool = Field(..., description="Success status")
+    data: Optional[T] = Field(None, description="Response data")
+    message: str = Field(..., description="Response message")
+    error: Optional[str] = Field(None, description="Error message if success is False")
 
 
 class HealthResponse(BaseResponse):

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
+import { Observable, BehaviorSubject, firstValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { ParkingLot } from '../../../core/models/parking.model';
@@ -53,11 +53,14 @@ export class GuestService {
         .set('startTime', params.startTime)
         .set('endTime', params.endTime);
 
-      const response = await this.http.get<ParkingLot[]>(
+      console.log('Guest search API call:', `${this.apiUrl}/parking/search`, httpParams.toString());
+
+      const response = await firstValueFrom(this.http.get<ParkingLot[]>(
         `${this.apiUrl}/parking/search`,
         { params: httpParams }
-      ).toPromise();
+      ));
 
+      console.log('Guest search response:', response);
       const results = response || [];
       
       // Cache the results

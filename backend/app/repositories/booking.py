@@ -315,7 +315,15 @@ class BookingRepository(BaseRepository[Booking]):
     ) -> Dict[str, Any]:
         """Get booking statistics for a date range."""
         try:
-            base_query = select(Booking).where(
+            # Use specific columns to avoid issues with new columns that might not exist in DB yet
+            base_query = select(
+                Booking.id,
+                Booking.total_amount,
+                Booking.status,
+                Booking.vehicle_type,
+                Booking.created_at,
+                Booking.lot_id
+            ).where(
                 and_(
                     Booking.created_at >= start_date,
                     Booking.created_at <= end_date
@@ -326,13 +334,14 @@ class BookingRepository(BaseRepository[Booking]):
                 base_query = base_query.where(Booking.lot_id == lot_id)
             
             # Total bookings and revenue
+            subquery = base_query.subquery()
             stats_query = (
                 select(
-                    func.count(Booking.id).label('total_bookings'),
-                    func.sum(Booking.total_amount).label('total_revenue'),
-                    func.avg(Booking.total_amount).label('average_booking_value')
+                    func.count(subquery.c.id).label('total_bookings'),
+                    func.sum(subquery.c.total_amount).label('total_revenue'),
+                    func.avg(subquery.c.total_amount).label('average_booking_value')
                 )
-                .select_from(base_query.subquery())
+                .select_from(subquery)
             )
             
             stats_result = await self.session.execute(stats_query)
@@ -341,11 +350,11 @@ class BookingRepository(BaseRepository[Booking]):
             # Bookings by status
             status_query = (
                 select(
-                    Booking.status,
-                    func.count(Booking.id).label('count')
+                    subquery.c.status,
+                    func.count(subquery.c.id).label('count')
                 )
-                .select_from(base_query.subquery())
-                .group_by(Booking.status)
+                .select_from(subquery)
+                .group_by(subquery.c.status)
             )
             
             status_result = await self.session.execute(status_query)
@@ -354,12 +363,12 @@ class BookingRepository(BaseRepository[Booking]):
             # Bookings by vehicle type
             vehicle_query = (
                 select(
-                    Booking.vehicle_type,
-                    func.count(Booking.id).label('count'),
-                    func.sum(Booking.total_amount).label('revenue')
+                    subquery.c.vehicle_type,
+                    func.count(subquery.c.id).label('count'),
+                    func.sum(subquery.c.total_amount).label('revenue')
                 )
-                .select_from(base_query.subquery())
-                .group_by(Booking.vehicle_type)
+                .select_from(subquery)
+                .group_by(subquery.c.vehicle_type)
             )
             
             vehicle_result = await self.session.execute(vehicle_query)

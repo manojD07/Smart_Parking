@@ -23,7 +23,7 @@ import asyncio
 from app.models.slot_chunks import SlotTimeChunk, DemandLevel, ChunkStatus
 from app.models.booking import Booking, BookingStatus
 from app.models.parking import ParkingSlot, ParkingLot, VehicleType
-from app.models.payment import Payment, PaymentStatus
+# Payment functionality handled by DummyPaymentService, not models
 from app.repositories.booking import BookingRepository
 from app.repositories.parking import ParkingSlotRepository
 from app.repositories.slot_chunks import SlotTimeChunkRepository

@@ -5,6 +5,7 @@ import { adminGuard } from './core/guards/admin.guard';
 export const routes: Routes = [
   {
     path: '',
+    canActivate: [guestGuard],
     loadComponent: () => import('./features/guest/components/landing-page.component').then(m => m.GuestLandingPageComponent)
   },
   {
