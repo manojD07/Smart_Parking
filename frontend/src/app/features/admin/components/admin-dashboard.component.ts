@@ -69,7 +69,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
               <div class="card-body">
                 <div class="d-flex justify-content-between">
                   <div>
-                    <h4 class="mb-0">{{ dashboardData.overview.today_bookings || 0 }}</h4>
+                    <h4 class="mb-0">{{ dashboardData.today_statistics.total_bookings || 0 }}</h4>
                     <small>Today's Bookings</small>
                   </div>
                   <i class="fas fa-calendar-alt fa-2x opacity-75"></i>
@@ -83,7 +83,7 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
               <div class="card-body">
                 <div class="d-flex justify-content-between">
                   <div>
-                    <h4 class="mb-0">$ {{ dashboardData.overview.today_revenue || 0 | number:'1.2-2' }}</h4>
+                    <h4 class="mb-0">$ {{ dashboardData.today_statistics.total_revenue || 0 | number:'1.2-2' }}</h4>
                     <small>Today's Revenue</small>
                   </div>
                   <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
@@ -188,11 +188,11 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
                 <div class="row text-center">
                   <div class="col-md-3">
                     <h4 class="text-primary">{{ dashboardData.today_statistics.total_bookings || 0 }}</h4>
-                    <small class="text-muted">Total Bookings</small>
+                    <small class="text-muted">Today's Total Bookings</small>
                   </div>
                   <div class="col-md-3">
                     <h4 class="text-success">$ {{ dashboardData.today_statistics.total_revenue || 0 | number:'1.2-2' }}</h4>
-                    <small class="text-muted">Total Revenue</small>
+                    <small class="text-muted">Today's Total Revenue</small>
                   </div>
                   <div class="col-md-3">
                     <h4 class="text-info">$ {{ dashboardData.today_statistics.average_booking_value || 0 | number:'1.2-2' }}</h4>
@@ -239,6 +239,23 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         next: (data) => {
           console.log('✅ Dashboard data received:', data);
           console.log('🔍 Vehicle type breakdown:', data?.today_statistics?.vehicle_type_breakdown);
+          
+          // Debug: Log the different booking count sources
+          console.log('📊 BOOKING COUNT COMPARISON:');
+          console.log('🚨 CHECKING FOR INCONSISTENCY:');
+          console.log('overview.today_bookings:', data?.overview?.today_bookings);
+          console.log('today_statistics.total_bookings:', data?.today_statistics?.total_bookings);
+          console.log('overview.today_revenue:', data?.overview?.today_revenue);
+          console.log('today_statistics.total_revenue:', data?.today_statistics?.total_revenue);
+          
+          // Check for inconsistency
+          const overviewRevenue = data?.overview?.today_revenue || 0;
+          const statsRevenue = data?.today_statistics?.total_revenue || 0;
+          if (Math.abs(overviewRevenue - statsRevenue) > 0.01) {
+            console.error('🚨 REVENUE INCONSISTENCY DETECTED!');
+            console.error(`Overview: $${overviewRevenue}, Statistics: $${statsRevenue}`);
+          }
+          
           this.dashboardData = data;
           this.loading = false;
         },

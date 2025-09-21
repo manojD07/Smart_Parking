@@ -40,19 +40,43 @@ async def get_admin_dashboard(
         today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
         today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
         
+        # Debug: Log the date range being used
+        import structlog
+        logger = structlog.get_logger(__name__)
+        logger.info("Dashboard date range", 
+                   today=today.isoformat(), 
+                   start=today_start.isoformat(), 
+                   end=today_end.isoformat())
+        
         today_stats = await booking_service.get_booking_statistics(
             start_date=today_start,
             end_date=today_end
         )
         
+        # Debug: Log the statistics result
+        logger.info("Booking statistics result", stats=today_stats)
+        
+        # Ensure consistency - use the same values for both sections
+        total_bookings = today_stats.get("total_bookings", 0)
+        total_revenue = float(today_stats.get("total_revenue", 0))
+        
+        logger.info("Dashboard response data", 
+                   total_bookings=total_bookings,
+                   total_revenue=total_revenue,
+                   today_stats_keys=list(today_stats.keys()) if today_stats else [])
+        
         return {
             "overview": {
                 "total_users": total_users,
                 "total_parking_lots": total_lots,
-                "today_bookings": today_stats.get("total_bookings", 0),
-                "today_revenue": float(today_stats.get("total_revenue", 0))
+                "today_bookings": total_bookings,
+                "today_revenue": total_revenue
             },
-            "today_statistics": today_stats
+            "today_statistics": {
+                **today_stats,
+                "total_bookings": total_bookings,  # Ensure consistency
+                "total_revenue": total_revenue     # Ensure consistency
+            }
         }
         
     except BaseApplicationError as e:

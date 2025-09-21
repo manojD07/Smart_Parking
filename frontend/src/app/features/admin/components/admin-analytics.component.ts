@@ -3,12 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
-// Components - Placeholder imports for deleted components
-// import { RevenueAnalyticsComponent } from './analytics/revenue-analytics.component';
-// import { BookingAnalyticsComponent } from './analytics/booking-analytics.component';
-// import { OccupancyAnalyticsComponent } from './analytics/occupancy-analytics.component';
-// import { PerformanceMetricsComponent } from './analytics/performance-metrics.component';
-// import { LoadingStateComponent } from './shared/loading-state.component';
+// Analytics Components
+import { SimpleRevenueAnalyticsComponent } from './analytics/simple-revenue-analytics.component';
 
 // Services
 import { AnalyticsService, AnalyticsOverview } from '../services/analytics.service';
@@ -16,7 +12,7 @@ import { AnalyticsService, AnalyticsOverview } from '../services/analytics.servi
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SimpleRevenueAnalyticsComponent],
   template: `
     <div class="container-fluid mt-4">
       <!-- Header -->
@@ -30,17 +26,6 @@ import { AnalyticsService, AnalyticsOverview } from '../services/analytics.servi
             <p class="text-muted">Comprehensive business analytics and insights</p>
           </div>
           <div class="d-flex gap-2">
-            <!-- Date Range Selector -->
-            <select 
-              class="form-select" 
-              [(ngModel)]="selectedPeriod" 
-              (change)="onPeriodChange()"
-              style="width: auto;">
-              <option value="weekly">Last 7 days</option>
-              <option value="monthly">Last 30 days</option>
-              <option value="quarterly">Last 3 months</option>
-              <option value="yearly">Last year</option>
-            </select>
             <button 
               class="btn btn-outline-primary" 
               (click)="refreshAnalytics()"
@@ -60,69 +45,8 @@ import { AnalyticsService, AnalyticsOverview } from '../services/analytics.servi
         <p class="mt-3">Loading analytics data...</p>
       </div>
 
-      <!-- Analytics Overview Cards -->
-      <div class="row mb-4" *ngIf="!loading && analyticsOverview">
-        <div class="col-md-3 col-sm-6 mb-3">
-          <div class="card bg-primary text-white">
-            <div class="card-body">
-              <div class="d-flex justify-content-between">
-                <div>
-                  <h4 class="card-title">{{analyticsOverview.summary.total_bookings | number}}</h4>
-                  <p class="card-text">Total Bookings</p>
-                </div>
-                <div class="text-end">
-                  <i class="fas fa-ticket-alt fa-2x opacity-75"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-3">
-          <div class="card bg-success text-white">
-            <div class="card-body">
-              <div class="d-flex justify-content-between">
-                <div>
-                  <h4 class="card-title">\${{analyticsOverview.summary.total_revenue | number:'1.2-2'}}</h4>
-                  <p class="card-text">Total Revenue</p>
-                </div>
-                <div class="text-end">
-                  <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-3">
-          <div class="card bg-info text-white">
-            <div class="card-body">
-              <div class="d-flex justify-content-between">
-                <div>
-                  <h4 class="card-title">{{analyticsOverview.summary.utilization_rate | percent:'1.1-1'}}</h4>
-                  <p class="card-text">Utilization Rate</p>
-                </div>
-                <div class="text-end">
-                  <i class="fas fa-chart-pie fa-2x opacity-75"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-3">
-          <div class="card bg-warning text-white">
-            <div class="card-body">
-              <div class="d-flex justify-content-between">
-                <div>
-                  <h4 class="card-title">{{analyticsOverview.summary.total_lots | number}}</h4>
-                  <p class="card-text">Active Parking Lots</p>
-                </div>
-                <div class="text-end">
-                  <i class="fas fa-parking fa-2x opacity-75"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- REMOVED: These 4 cards were using different API and causing inconsistency -->
+      <!-- All data now comes from the revenue analytics component below -->
 
       <!-- Tab Navigation -->
       <div class="row mb-4">
@@ -184,11 +108,7 @@ import { AnalyticsService, AnalyticsOverview } from '../services/analytics.servi
       <div class="tab-content" id="analyticsTabContent">
         <!-- Revenue Analytics Tab -->
         <div class="tab-pane fade show active" id="revenue" role="tabpanel">
-          <div class="text-center py-5">
-            <i class="fas fa-dollar-sign fa-3x text-muted mb-3"></i>
-            <h5>Revenue Analytics</h5>
-            <p class="text-muted">Component temporarily disabled - will be restored in next phase</p>
-          </div>
+          <app-simple-revenue-analytics></app-simple-revenue-analytics>
         </div>
 
         <!-- Booking Analytics Tab -->
@@ -338,5 +258,29 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
    */
   refreshAnalytics(): void {
     this.loadAnalyticsData();
+  }
+
+  /**
+   * Get date range for child components
+   */
+  getDateRangeForComponents(): { start: string; end: string } {
+    const dateRange = this.analyticsService.getDateRange(this.selectedPeriod);
+    return {
+      start: dateRange.start,
+      end: dateRange.end
+    };
+  }
+
+  /**
+   * Convert period to days for child component
+   */
+  getPeriodInDays(): string {
+    switch (this.selectedPeriod) {
+      case 'weekly': return '7';
+      case 'monthly': return '30';
+      case 'quarterly': return '90';
+      case 'yearly': return '365';
+      default: return '30';
+    }
   }
 }

@@ -549,7 +549,7 @@ class UtilizationAnalytics:
             
         except Exception as e:
             self.logger.error("Error calculating buffer time effectiveness", error=str(e))
-            return 0.5
+            return 0.0
     
     def _generate_performance_benchmarks(
         self,
@@ -892,8 +892,8 @@ class UtilizationAnalytics:
         end_time: datetime
     ) -> Dict[int, float]:
         """Get utilization rate by hour of day."""
-        # Simplified implementation - return mock data for now
-        return {hour: 0.5 for hour in range(24)}  # 50% utilization placeholder
+        # Return empty utilization data - no mock data
+        return {hour: 0.0 for hour in range(24)}  # No utilization data available
     
     def _get_default_time_window(self, period: AnalyticsPeriod) -> Tuple[datetime, datetime]:
         """Get default time window for analysis period."""

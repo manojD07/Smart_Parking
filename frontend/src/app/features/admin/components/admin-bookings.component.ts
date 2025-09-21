@@ -1,7 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Subject, takeUntil } from 'rxjs';
 
 // Services
 import { ToastService } from '../../../core/services/toast.service';
@@ -11,6 +12,7 @@ import { LoadingStateComponent } from './shared/loading-state.component';
 
 // Pipes
 import { AppCurrencyPipe } from '../../../shared/pipes/currency.pipe';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-admin-bookings',
@@ -41,7 +43,7 @@ import { AppCurrencyPipe } from '../../../shared/pipes/currency.pipe';
               <div class="d-flex justify-content-between">
                 <div>
                   <h4 class="mb-0">{{ bookingStats.total }}</h4>
-                  <small>Total Bookings</small>
+                  <small>Total Bookings (Today)</small>
                 </div>
                 <i class="fas fa-calendar-check fa-2x opacity-75"></i>
               </div>
@@ -80,7 +82,7 @@ import { AppCurrencyPipe } from '../../../shared/pipes/currency.pipe';
               <div class="d-flex justify-content-between">
                 <div>
                   <h4 class="mb-0">{{ bookingStats.total_revenue | appCurrency }}</h4>
-                  <small>Total Revenue</small>
+                  <small>Total Revenue (Today)</small>
                 </div>
                 <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
               </div>
@@ -224,6 +226,75 @@ import { AppCurrencyPipe } from '../../../shared/pipes/currency.pipe';
               </tbody>
             </table>
           </div>
+          
+          <!-- Pagination Controls -->
+          <div class="card-footer">
+            <!-- Debug Info -->
+            <div class="alert alert-info mb-3">
+              <strong>Pagination Debug:</strong>
+              Total Items: {{ pagination.totalItems }}, 
+              Page Size: {{ pagination.pageSize }}, 
+              Total Pages: {{ pagination.totalPages }}, 
+              Current Page: {{ pagination.currentPage }}
+            </div>
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <div class="d-flex align-items-center gap-2">
+                  <label class="form-label mb-0">Page Size:</label>
+                  <select 
+                    class="form-select form-select-sm" 
+                    [(ngModel)]="pagination.pageSize" 
+                    (change)="onPageSizeChange()"
+                    [disabled]="loading"
+                    style="width: auto;">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <span class="text-muted">
+                    Showing {{ getStartIndex() }}-{{ getEndIndex() }} of {{ pagination.totalItems }} bookings
+                  </span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <nav aria-label="Bookings pagination">
+                  <ul class="pagination justify-content-end mb-0">
+                    <li class="page-item" [class.disabled]="pagination.currentPage === 1">
+                      <a class="page-link" href="#" (click)="changePage(1); $event.preventDefault()">
+                        <i class="fas fa-angle-double-left"></i>
+                      </a>
+                    </li>
+                    <li class="page-item" [class.disabled]="pagination.currentPage === 1">
+                      <a class="page-link" href="#" (click)="changePage(pagination.currentPage - 1); $event.preventDefault()">
+                        <i class="fas fa-angle-left"></i>
+                      </a>
+                    </li>
+                    
+                    <!-- Page numbers -->
+                    <li *ngFor="let page of getVisiblePages()" 
+                        class="page-item" 
+                        [class.active]="page === pagination.currentPage">
+                      <a class="page-link" href="#" (click)="changePage(page); $event.preventDefault()">
+                        {{ page }}
+                      </a>
+                    </li>
+                    
+                    <li class="page-item" [class.disabled]="pagination.currentPage === pagination.totalPages">
+                      <a class="page-link" href="#" (click)="changePage(pagination.currentPage + 1); $event.preventDefault()">
+                        <i class="fas fa-angle-right"></i>
+                      </a>
+                    </li>
+                    <li class="page-item" [class.disabled]="pagination.currentPage === pagination.totalPages">
+                      <a class="page-link" href="#" (click)="changePage(pagination.totalPages); $event.preventDefault()">
+                        <i class="fas fa-angle-double-right"></i>
+                      </a>
+                    </li>
+                  </ul>
+                </nav>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -265,9 +336,21 @@ export class AdminBookingsComponent implements OnInit, OnDestroy {
     direction: 'desc' as 'asc' | 'desc'
   };
 
-  loading = false;
+  // Pagination
+  pagination = {
+    currentPage: 1,
+    pageSize: 20,
+    totalItems: 0,
+    totalPages: 0
+  };
 
-  constructor(private toastService: ToastService) {}
+  loading = false;
+  errorMessage = '';
+
+  constructor(
+    private toastService: ToastService,
+    private http: HttpClient
+  ) {}
 
   ngOnInit(): void {
     this.loadBookings();
@@ -281,34 +364,13 @@ export class AdminBookingsComponent implements OnInit, OnDestroy {
   async loadBookings(): Promise<void> {
     this.loading = true;
     try {
-      // Mock data for now
-      this.bookings = [
-        {
-          id: '1',
-          booking_reference: 'BK001',
-          user: { first_name: 'John', last_name: 'Doe', email: 'john@example.com' },
-          vehicle_type: 'car',
-          vehicle_number: 'ABC123',
-          start_time: new Date().toISOString(),
-          end_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-          total_amount: 25.50,
-          status: 'confirmed'
-        },
-        {
-          id: '2',
-          booking_reference: 'BK002',
-          user: { first_name: 'Jane', last_name: 'Smith', email: 'jane@example.com' },
-          vehicle_type: 'bike',
-          vehicle_number: 'XYZ789',
-          start_time: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(),
-          end_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-          total_amount: 15.25,
-          status: 'active'
-        }
-      ];
+      // Load real bookings from API and separate metadata
+      await Promise.all([
+        this.loadBookingsList(),
+        this.loadBookingsMetadata()
+      ]);
       
       this.filteredBookings = [...this.bookings];
-      this.calculateStats();
     } catch (error) {
       console.error('Error loading bookings:', error);
       this.toastService.showError('Failed to load bookings');
@@ -316,15 +378,76 @@ export class AdminBookingsComponent implements OnInit, OnDestroy {
       this.loading = false;
     }
   }
+  
+  private async loadBookingsList(): Promise<void> {
+    // Load paginated bookings for display
+    const skip = (this.pagination.currentPage - 1) * this.pagination.pageSize;
+    const limit = this.pagination.pageSize;
+    
+    let url = `${environment.apiUrl}/admin/bookings?skip=${skip}&limit=${limit}`;
+    
+    // Add filters to URL if they exist
+    if (this.filters.status) url += `&status=${this.filters.status}`;
+    if (this.filters.date_from) url += `&start_date=${this.filters.date_from}`;
+    
+    try {
+      const response = await this.http.get<any[]>(url).toPromise();
+      this.bookings = response || [];
+      
+      console.log(`Loaded page ${this.pagination.currentPage} (${this.bookings.length} bookings)`);
+    } catch (error) {
+      console.error('Failed to load bookings list:', error);
+      this.bookings = [];
+    }
+  }
+  
+  private async loadBookingsMetadata(): Promise<void> {
+    // Load total statistics (NOT affected by pagination)
+    const url = `${environment.apiUrl}/admin/dashboard`;
+    
+    try {
+      const response = await this.http.get<any>(url).toPromise();
+      
+      // Use the actual database totals for metadata
+      this.bookingStats = {
+        total: response?.today_statistics?.total_bookings || 0,
+        confirmed: response?.today_statistics?.status_breakdown?.confirmed || 0,
+        active: response?.today_statistics?.status_breakdown?.active || 0,
+        completed: response?.today_statistics?.status_breakdown?.completed || 0,
+        cancelled: response?.today_statistics?.status_breakdown?.cancelled || 0,
+        total_revenue: parseFloat(response?.today_statistics?.total_revenue || 0)
+      };
+      
+      // Update pagination metadata
+      this.pagination.totalItems = this.bookingStats.total;
+      this.pagination.totalPages = Math.ceil(this.pagination.totalItems / this.pagination.pageSize);
+      
+      console.log('Loaded metadata stats (NOT affected by pagination):', this.bookingStats);
+      console.log('Pagination info:', this.pagination);
+    } catch (error) {
+      console.error('Failed to load bookings metadata:', error);
+      // DO NOT fallback to paginated data - show error instead
+      this.bookingStats = {
+        total: 0,
+        confirmed: 0,
+        active: 0,
+        completed: 0,
+        cancelled: 0,
+        total_revenue: 0
+      };
+      this.errorMessage = 'Failed to load booking statistics. Totals unavailable.';
+    }
+  }
+  
+  // REMOVED: This method was causing incorrect totals based on paginated data
+  // Totals should ALWAYS come from database queries, never from UI pagination
 
   applyFilters(): void {
-    this.filteredBookings = this.bookings.filter(booking => {
-      if (this.filters.status && booking.status !== this.filters.status) return false;
-      if (this.filters.vehicle_type && booking.vehicle_type !== this.filters.vehicle_type) return false;
-      if (this.filters.user_email && !booking.user?.email?.toLowerCase().includes(this.filters.user_email.toLowerCase())) return false;
-      if (this.filters.date_from && new Date(booking.start_time) < new Date(this.filters.date_from)) return false;
-      return true;
-    });
+    // Reset to first page when applying filters
+    this.pagination.currentPage = 1;
+    
+    // Reload data with filters applied
+    this.loadBookings();
   }
 
   sortBy(field: string): void {
@@ -350,23 +473,76 @@ export class AdminBookingsComponent implements OnInit, OnDestroy {
 
   clearFilters(): void {
     this.filters = { status: '', vehicle_type: '', user_email: '', date_from: '' };
-    this.filteredBookings = [...this.bookings];
+    this.pagination.currentPage = 1;
+    this.loadBookings();
   }
 
-  calculateStats(): void {
-    this.bookingStats = {
-      total: this.bookings.length,
-      confirmed: this.bookings.filter(b => b.status === 'confirmed').length,
-      active: this.bookings.filter(b => b.status === 'active').length,
-      completed: this.bookings.filter(b => b.status === 'completed').length,
-      cancelled: this.bookings.filter(b => b.status === 'cancelled').length,
-      total_revenue: this.bookings.reduce((sum, b) => sum + (b.total_amount || 0), 0)
-    };
-  }
 
   async refreshBookings(): Promise<void> {
     await this.loadBookings();
     this.toastService.showSuccess('Bookings refreshed');
+  }
+
+  // Pagination methods
+  changePage(page: number): void {
+    if (page >= 1 && page <= this.pagination.totalPages && page !== this.pagination.currentPage) {
+      this.pagination.currentPage = page;
+      this.loadBookingsList();
+    }
+  }
+
+  async onPageSizeChange(): Promise<void> {
+    console.log(`Page size changed to: ${this.pagination.pageSize}`);
+    
+    // Show loading state
+    this.loading = true;
+    
+    try {
+      // Reset to first page
+      this.pagination.currentPage = 1;
+      
+      // Recalculate total pages
+      this.pagination.totalPages = Math.ceil(this.pagination.totalItems / this.pagination.pageSize);
+      
+      console.log(`Auto-refreshing with new pagination: Page 1 of ${this.pagination.totalPages}`);
+      
+      // Auto-refresh data with new page size
+      await this.loadBookingsList();
+      
+      this.toastService.showSuccess(`Page size changed to ${this.pagination.pageSize}`);
+    } catch (error) {
+      console.error('Error changing page size:', error);
+      this.toastService.showError('Failed to change page size');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  getVisiblePages(): number[] {
+    const current = this.pagination.currentPage;
+    const total = this.pagination.totalPages;
+    const visible: number[] = [];
+    
+    // Show up to 5 page numbers around current page
+    const start = Math.max(1, current - 2);
+    const end = Math.min(total, current + 2);
+    
+    for (let i = start; i <= end; i++) {
+      visible.push(i);
+    }
+    
+    return visible;
+  }
+
+  getStartIndex(): number {
+    return (this.pagination.currentPage - 1) * this.pagination.pageSize + 1;
+  }
+
+  getEndIndex(): number {
+    return Math.min(
+      this.pagination.currentPage * this.pagination.pageSize, 
+      this.pagination.totalItems
+    );
   }
 
   viewBooking(booking: any): void {
@@ -375,9 +551,22 @@ export class AdminBookingsComponent implements OnInit, OnDestroy {
 
   async cancelBooking(booking: any): Promise<void> {
     if (confirm(`Cancel booking ${booking.booking_reference}?`)) {
-      booking.status = 'cancelled';
-      this.calculateStats();
-      this.toastService.showSuccess('Booking cancelled');
+      try {
+        // Call the actual cancel API
+        const url = `${environment.apiUrl}/admin/bookings/${booking.id}/cancel`;
+        await this.http.put(url, {}).toPromise();
+        
+        // Update local data
+        booking.status = 'cancelled';
+        
+        // Reload metadata to get accurate totals
+        await this.loadBookingsMetadata();
+        
+        this.toastService.showSuccess('Booking cancelled');
+      } catch (error) {
+        console.error('Failed to cancel booking:', error);
+        this.toastService.showError('Failed to cancel booking');
+      }
     }
   }
 

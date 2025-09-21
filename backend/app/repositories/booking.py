@@ -315,6 +315,14 @@ class BookingRepository(BaseRepository[Booking]):
     ) -> Dict[str, Any]:
         """Get booking statistics for a date range."""
         try:
+            # Debug: Log the date range being queried
+            import structlog
+            logger = structlog.get_logger(__name__)
+            logger.info("Booking statistics query", 
+                       start_date=start_date.isoformat(), 
+                       end_date=end_date.isoformat(),
+                       lot_id=str(lot_id) if lot_id else None)
+            
             # Use specific columns to avoid issues with new columns that might not exist in DB yet
             base_query = select(
                 Booking.id,
@@ -346,6 +354,12 @@ class BookingRepository(BaseRepository[Booking]):
             
             stats_result = await self.session.execute(stats_query)
             stats = dict(stats_result.fetchone()._mapping)
+            
+            # Debug: Log the actual statistics found
+            logger.info("Raw statistics from database", 
+                       total_bookings=stats.get('total_bookings'),
+                       total_revenue=stats.get('total_revenue'),
+                       average_booking_value=stats.get('average_booking_value'))
             
             # Bookings by status
             status_query = (

@@ -269,6 +269,17 @@ export class AnalyticsService {
   }
 
   /**
+   * Alias for getLotSpecificAnalytics to match component usage
+   */
+  getLotAnalytics(
+    lotId: string,
+    startDate?: string,
+    endDate?: string
+  ): Observable<any> {
+    return this.getLotSpecificAnalytics(lotId, startDate, endDate);
+  }
+
+  /**
    * Get daily report
    */
   getDailyReport(targetDate?: string): Observable<DailyReport> {
