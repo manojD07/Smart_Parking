@@ -1,9 +1,10 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { GuestService } from '../../guest/services/guest.service';
 import { UserRegistration } from '../../../core/models/user.model';
 
 @Component({
@@ -16,6 +17,12 @@ import { UserRegistration } from '../../../core/models/user.model';
         <div class="col-md-8 col-lg-6">
           <div class="card shadow">
             <div class="card-body p-4">
+              <!-- Guest Message Alert -->
+              <div *ngIf="guestMessage" class="alert alert-info text-center mb-4">
+                <i class="fas fa-info-circle me-2"></i>
+                {{ guestMessage }}
+              </div>
+
               <div class="text-center mb-4">
                 <h2 class="text-primary-custom">Create Account</h2>
                 <p class="text-muted">Join Smart Parking today</p>
@@ -175,17 +182,21 @@ import { UserRegistration } from '../../../core/models/user.model';
     </div>
   `
 })
-export class RegisterComponent implements OnDestroy {
+export class RegisterComponent implements OnInit, OnDestroy {
   registerForm: FormGroup;
   loading = false;
   errorMessage = '';
   successMessage = '';
+  guestMessage = '';
   private destroy$ = new Subject<void>();
+  private returnUrl = '/dashboard';
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private guestService: GuestService,
+    private router: Router,
+    private route: ActivatedRoute
   ) {
     this.registerForm = this.fb.group({
       first_name: ['', [Validators.required, Validators.minLength(2)]],
@@ -195,6 +206,18 @@ export class RegisterComponent implements OnDestroy {
       password: ['', [Validators.required, Validators.minLength(8), this.passwordValidator]],
       confirmPassword: ['', Validators.required]
     }, { validators: this.passwordMatchValidator });
+  }
+
+  ngOnInit(): void {
+    // Check for guest context and query parameters
+    this.route.queryParams.subscribe(params => {
+      this.returnUrl = params['returnUrl'] || '/dashboard';
+      this.guestMessage = params['message'] || '';
+      
+      if (params['guest'] === 'true') {
+        this.guestMessage = this.guestMessage || 'Create an account to complete your booking.';
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -244,9 +267,24 @@ export class RegisterComponent implements OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: () => {
+            this.loading = false;
             this.successMessage = 'Account created successfully! Redirecting to login...';
+            
+            // Handle guest flow - preserve query parameters for login
+            const queryParams = this.route.snapshot.queryParams;
+            const loginQueryParams: any = {};
+            
+            if (queryParams['guest'] === 'true') {
+              loginQueryParams.guest = 'true';
+              loginQueryParams.returnUrl = this.returnUrl;
+              loginQueryParams.message = 'Account created! Please login to complete your booking.';
+              if (queryParams['lotId']) {
+                loginQueryParams.lotId = queryParams['lotId'];
+              }
+            }
+            
             setTimeout(() => {
-              this.router.navigate(['/auth/login']);
+              this.router.navigate(['/auth/login'], { queryParams: loginQueryParams });
             }, 2000);
           },
           error: (error) => {

@@ -49,6 +49,10 @@ class ParkingLotResponse(ParkingLotBase):
     created_at: datetime = Field(..., description="Creation timestamp (UTC)")
     updated_at: datetime = Field(..., description="Last update timestamp (UTC)")
     
+    # Available slots for guest search
+    available_car_slots: Optional[int] = Field(None, description="Currently available car slots")
+    available_bike_slots: Optional[int] = Field(None, description="Currently available bike slots")
+    
     class Config:
         from_attributes = True
 

@@ -71,6 +71,7 @@ docs/_build/
 
 # Project context file (contains implementation details)
 PROJECT_CONTEXT.md
+NOTIFICATION_ENHANCEMENT_PLAN.md
 
 # Package files
 *.dmg

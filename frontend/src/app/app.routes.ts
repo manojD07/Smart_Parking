@@ -5,8 +5,7 @@ import { adminGuard } from './core/guards/admin.guard';
 export const routes: Routes = [
   {
     path: '',
-    canActivate: [authGuard],
-    loadComponent: () => import('./shared/components/role-redirect.component').then(m => m.RoleRedirectComponent)
+    loadComponent: () => import('./features/guest/components/landing-page.component').then(m => m.GuestLandingPageComponent)
   },
   {
     path: 'auth',
@@ -24,6 +23,19 @@ export const routes: Routes = [
         path: '',
         redirectTo: 'login',
         pathMatch: 'full'
+      }
+    ]
+  },
+  {
+    path: 'guest',
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/guest/components/landing-page.component').then(m => m.GuestLandingPageComponent)
+      },
+      {
+        path: 'search',
+        loadComponent: () => import('./features/guest/components/guest-search.component').then(m => m.GuestSearchComponent)
       }
     ]
   },

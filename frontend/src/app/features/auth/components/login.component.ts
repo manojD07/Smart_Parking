@@ -1,9 +1,10 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { GuestService } from '../../guest/services/guest.service';
 import { UserLogin } from '../../../core/models/user.model';
 
 @Component({
@@ -16,6 +17,12 @@ import { UserLogin } from '../../../core/models/user.model';
         <div class="col-md-6 col-lg-4">
           <div class="card shadow">
             <div class="card-body p-4">
+              <!-- Guest Message Alert -->
+              <div *ngIf="guestMessage" class="alert alert-info text-center mb-4">
+                <i class="fas fa-info-circle me-2"></i>
+                {{ guestMessage }}
+              </div>
+
               <div class="text-center mb-4">
                 <h2 class="text-primary-custom">Welcome Back</h2>
                 <p class="text-muted">Sign in to your account</p>
@@ -87,21 +94,37 @@ import { UserLogin } from '../../../core/models/user.model';
     </div>
   `
 })
-export class LoginComponent implements OnDestroy {
+export class LoginComponent implements OnInit, OnDestroy {
   loginForm: FormGroup;
   loading = false;
   errorMessage = '';
+  guestMessage = '';
   private destroy$ = new Subject<void>();
+  private returnUrl = '/user-dashboard';
+  private guestBookingNavigation: { path: string; queryParams: any } | null = null;
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
+    private guestService: GuestService,
     private router: Router,
     private route: ActivatedRoute
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', Validators.required]
+    });
+  }
+
+  ngOnInit(): void {
+    // Check for guest context and query parameters
+    this.route.queryParams.subscribe(params => {
+      this.returnUrl = params['returnUrl'] || '/dashboard';
+      this.guestMessage = params['message'] || '';
+      
+      if (params['guest'] === 'true') {
+        this.guestMessage = this.guestMessage || 'Please login to complete your booking.';
+      }
     });
   }
 
@@ -122,13 +145,24 @@ export class LoginComponent implements OnDestroy {
           .pipe(takeUntil(this.destroy$))
           .subscribe({
             next: () => {
+              this.loading = false;
+              
+              // Handle guest booking intent after successful login
+              this.handlePostLoginGuestFlow();
+              
               // Get the current user and redirect based on role
               const currentUser = this.authService.currentUser;
               if (currentUser?.is_admin) {
                 this.router.navigate(['/admin/dashboard']);
               } else {
-                const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/user-dashboard';
-                this.router.navigate([returnUrl]);
+                // Check if we have guest booking navigation data
+                if (this.guestBookingNavigation) {
+                  this.router.navigate([this.guestBookingNavigation.path], {
+                    queryParams: this.guestBookingNavigation.queryParams
+                  });
+                } else {
+                  this.router.navigate([this.returnUrl]);
+                }
               }
             },
           error: (error) => {
@@ -145,6 +179,43 @@ export class LoginComponent implements OnDestroy {
   isFieldInvalid(fieldName: string): boolean {
     const field = this.loginForm.get(fieldName);
     return !!(field && field.invalid && (field.dirty || field.touched));
+  }
+
+  private handlePostLoginGuestFlow(): void {
+    // Check if user has a pending guest booking intent
+    const bookingIntent = this.guestService.getAndClearGuestBookingIntent();
+    if (bookingIntent) {
+      // Set up search results navigation with proper path and query params
+      this.guestBookingNavigation = {
+        path: '/parking',
+        queryParams: {
+          currentLocation: bookingIntent.location,
+          vehicleType: bookingIntent.vehicleType,
+          startTime: bookingIntent.startTime,
+          endTime: bookingIntent.endTime,
+          autoSearch: 'true'
+        }
+      };
+      return;
+    }
+    
+    // Check for guest context from query params
+    const queryParams = this.route.snapshot.queryParams;
+    if (queryParams['guest'] === 'true') {
+      const guestContext = this.guestService.getGuestSearchContext();
+      if (guestContext) {
+        this.guestBookingNavigation = {
+          path: '/parking',
+        queryParams: {
+          currentLocation: guestContext.location,
+          vehicleType: guestContext.vehicleType,
+          startTime: guestContext.startTime,
+          endTime: guestContext.endTime,
+          autoSearch: 'true'
+        }
+        };
+      }
+    }
   }
 
   private markFormGroupTouched(): void {

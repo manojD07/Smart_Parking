@@ -145,6 +145,40 @@ async def get_lot_slots(
         raise create_http_exception(e)
 
 
+@router.get("/search", response_model=List[ParkingLotResponse])
+async def search_parking_lots_guest(
+    location: str = Query(..., description="Location string or coordinates"),
+    vehicleType: str = Query(..., description="Vehicle type (car/bike)"),
+    startTime: str = Query(..., description="Start time in ISO format"),
+    endTime: str = Query(..., description="End time in ISO format"),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Search parking lots for guest users with text-based location."""
+    try:
+        parking_service = ParkingService(session)
+        
+        # For now, return all available parking lots
+        # In a real implementation, you would:
+        # 1. Parse the location string to get coordinates (geocoding)
+        # 2. Filter by availability for the given time range
+        # 3. Apply vehicle type filtering
+        
+        all_lots = await parking_service.lot_repository.get_multi(limit=50)
+        
+        # Add mock availability data for demonstration
+        lots_with_availability = []
+        for lot in all_lots:
+            lot_dict = lot.__dict__.copy()
+            # Mock availability calculation
+            lot_dict['available_car_slots'] = max(0, lot.total_car_slots - 2)
+            lot_dict['available_bike_slots'] = max(0, lot.total_bike_slots - 1)
+            lots_with_availability.append(lot_dict)
+        return [ParkingLotResponse(**lot_dict) for lot_dict in lots_with_availability]
+        
+    except BaseApplicationError as e:
+        raise create_http_exception(e)
+
+
 @router.post("/search", response_model=List[ParkingLotResponse])
 async def search_parking_lots(
     search_request: LocationSearchRequest,
