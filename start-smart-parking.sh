@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # 🅿️ Smart Parking Management System - One-Click Startup
-# This script starts the entire system: Backend + Frontend + Database + Sample Data
+# This script starts the entire system: Backend + Frontend + Database + Final Production Data
+# Includes complete notification system and all features ready for testing
 
 set -e
 
@@ -175,15 +176,22 @@ show_access_info() {
     echo -e "   ${CYAN}Redis Cache:${NC}            localhost:6379"
     
     echo -e "\n${GREEN}🔐 LOGIN CREDENTIALS:${NC}"
-    echo -e "   ${CYAN}Admin:${NC}  admin@smartparking.com / AdminPassword123!"
-    echo -e "   ${CYAN}User:${NC}   user@smartparking.com / UserPassword123!"
+    echo -e "   ${CYAN}Admin:${NC}  admin@smartparking.com / AdminPassword123! (8 notifications)"
+    echo -e "   ${CYAN}User:${NC}   user@smartparking.com / UserPassword123! (3 notifications)"
     
-    echo -e "\n${GREEN}📊 SAMPLE DATA:${NC}"
-    echo -e "   ${CYAN}Users:${NC}         23 (including admins)"
-    echo -e "   ${CYAN}Parking Lots:${NC}  7 (major Indian cities)"
-    echo -e "   ${CYAN}Parking Slots:${NC} 1000+ (cars and bikes)"
-    echo -e "   ${CYAN}Bookings:${NC}      Sample booking history"
+    echo -e "\n${GREEN}📊 FINAL PRODUCTION DATA:${NC}"
+    echo -e "   ${CYAN}Users:${NC}         23 (3 admins, 20 regular users)"
+    echo -e "   ${CYAN}Parking Lots:${NC}  7 active locations"
+    echo -e "   ${CYAN}Parking Slots:${NC} 1,339 (853 car, 486 bike slots)"
+    echo -e "   ${CYAN}Bookings:${NC}      97 sample bookings (13 confirmed, 31 completed)"
+    echo -e "   ${CYAN}Notifications:${NC} 12 sample notifications (11 unread, 1 read)"
     echo -e "   ${CYAN}Pricing Rules:${NC} Dynamic time-based pricing"
+    
+    echo -e "\n${GREEN}🔔 NOTIFICATION SYSTEM:${NC}"
+    echo -e "   ${CYAN}Features:${NC}       Booking confirmations, check-in/out reminders"
+    echo -e "   ${CYAN}Real-time:${NC}      WebSocket-based instant delivery"
+    echo -e "   ${CYAN}UI:${NC}             Notification bell in navbar, full management page"
+    echo -e "   ${CYAN}Scheduling:${NC}     Celery-based 5-minute reminders"
     
     echo -e "\n${GREEN}🛠️ MANAGEMENT:${NC}"
     echo -e "   ${CYAN}View Logs:${NC}       docker-compose -f docker-compose.fullstack.yml logs -f"
@@ -191,7 +199,8 @@ show_access_info() {
     echo -e "   ${CYAN}Restart:${NC}         $0"
     
     echo -e "\n${YELLOW}📝 NOTES:${NC}"
-    echo -e "   • The system automatically seeds sample data on first run"
+    echo -e "   • The system automatically loads final production database with notification system"
+    echo -e "   • Includes 23 users, 1,339 parking slots, 97 bookings, and 12 sample notifications"
     echo -e "   • All services are connected and ready for testing"
     echo -e "   • Check logs if any service shows as unhealthy"
     echo -e "   • Data persists in Docker volumes between restarts"
