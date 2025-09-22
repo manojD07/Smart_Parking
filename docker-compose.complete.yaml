@@ -43,7 +43,7 @@ services:
 
   # FastAPI Backend - Using built image
   api:
-    image: smart-parking-backend:latest
+    image: dekam/smart-parking-backend:latest
     container_name: smart_parking_complete_api
     ports:
       - "8000:8000"
@@ -71,7 +71,7 @@ services:
 
   # Angular Frontend - Using built image
   frontend:
-    image: smart-parking-frontend:latest
+    image: dekam/smart-parking-frontend:latest
     container_name: smart_parking_complete_frontend
     ports:
       - "4200:80"
