@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 🅿️ Smart Parking Management System - One-Click Startup
-# This script starts the entire system: Backend + Frontend + Database + Final Production Data
+# This script starts the entire "Smart Parking" system: Backend + Frontend + Database + Final Production Data
 # Includes complete notification system and all features ready for testing
 
 set -e

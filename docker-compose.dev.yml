@@ -1,5 +1,7 @@
 version: '3.8'
 
+name: smart-parking-dev
+
 services:
   # PostgreSQL Database
   db:

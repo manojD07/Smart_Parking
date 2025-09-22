@@ -154,18 +154,18 @@ import { AdminService, DashboardResponse } from '../services/admin.service';
                 <div class="row text-center">
                   <div class="col-6">
                     <i class="fas fa-car fa-2x text-primary mb-2"></i>
-                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.car.count || 0 }}</h4>
+                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.car?.count || 0 }}</h4>
                     <small class="text-muted">Cars</small>
                     <div class="text-success mt-1">
-                      $ {{ dashboardData.today_statistics.vehicle_type_breakdown.car.revenue || 0 | number:'1.2-2' }}
+                      $ {{ dashboardData.today_statistics.vehicle_type_breakdown.car?.revenue || 0 | number:'1.2-2' }}
                     </div>
                   </div>
                   <div class="col-6">
                     <i class="fas fa-motorcycle fa-2x text-success mb-2"></i>
-                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.bike.count || 0 }}</h4>
+                    <h4>{{ dashboardData.today_statistics.vehicle_type_breakdown.bike?.count || 0 }}</h4>
                     <small class="text-muted">Bikes</small>
                     <div class="text-success mt-1">
-                      $ {{ dashboardData.today_statistics.vehicle_type_breakdown.bike.revenue || 0 | number:'1.2-2' }}
+                      $ {{ dashboardData.today_statistics.vehicle_type_breakdown.bike?.revenue || 0 | number:'1.2-2' }}
                     </div>
                   </div>
                 </div>

@@ -23,11 +23,11 @@ export interface DashboardResponse {
       cancelled: number;
     };
     vehicle_type_breakdown: {
-      bike: {
+      bike?: {
         count: number;
         revenue: number;
       };
-      car: {
+      car?: {
         count: number;
         revenue: number;
       };
