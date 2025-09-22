@@ -1,6 +1,12 @@
 # Multi-stage build for Angular frontend
 FROM node:20-alpine AS builder
 
+# Build arguments for versioning
+ARG VERSION=1.0.0
+ARG COMMIT_ID=unknown
+ARG BUILD_DATE
+ARG REGISTRY=
+
 # Set working directory
 WORKDIR /app
 
@@ -13,6 +19,12 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Add build information to environment
+RUN echo "VERSION=${VERSION}" > .env && \
+    echo "COMMIT_ID=${COMMIT_ID}" >> .env && \
+    echo "BUILD_DATE=${BUILD_DATE}" >> .env && \
+    echo "REGISTRY=${REGISTRY}" >> .env
+
 # Build the Angular app
 RUN npm run build
 
@@ -21,6 +33,9 @@ FROM nginx:alpine
 
 # Copy built app from builder stage
 COPY --from=builder /app/dist/smart-parking-app/browser /usr/share/nginx/html
+
+# Copy build information
+COPY --from=builder /app/.env /usr/share/nginx/html/build_info.txt
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf

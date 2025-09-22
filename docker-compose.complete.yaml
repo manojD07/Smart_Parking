@@ -1,0 +1,152 @@
+version: '3.8'
+
+name: smart-parking-complete
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: smart_parking_complete_db
+    environment:
+      - POSTGRES_DB=smart_parking
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database_dumps/final_DB_dump.sql:/docker-entrypoint-initdb.d/01-final_DB_dump.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smart_parking_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: smart_parking_complete_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smart_parking_network
+
+  # FastAPI Backend - Using built image
+  api:
+    image: smart-parking-backend:latest
+    container_name: smart_parking_complete_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/smart_parking
+      - DATABASE_URL_SYNC=postgresql://postgres:password@db:5432/smart_parking
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - smart_parking_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Angular Frontend - Using built image
+  frontend:
+    image: smart-parking-frontend:latest
+    container_name: smart_parking_complete_frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - smart_parking_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery Worker - Using built backend image
+  celery_worker:
+    image: smart-parking-backend:latest
+    container_name: smart_parking_complete_worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/smart_parking
+      - DATABASE_URL_SYNC=postgresql://postgres:password@db:5432/smart_parking
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - smart_parking_network
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+
+  # Celery Beat (Scheduler) - Using built backend image
+  celery_beat:
+    image: smart-parking-backend:latest
+    container_name: smart_parking_complete_scheduler
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/smart_parking
+      - DATABASE_URL_SYNC=postgresql://postgres:password@db:5432/smart_parking
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - smart_parking_network
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+
+  # Celery Flower (Monitoring)
+  celery_flower:
+    image: mher/flower:2.0
+    container_name: smart_parking_complete_monitor
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - FLOWER_PORT=5555
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - smart_parking_network
+    command: celery --broker=redis://redis:6379/1 flower --port=5555
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  smart_parking_network:
+    driver: bridge

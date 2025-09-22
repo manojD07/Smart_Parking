@@ -85,6 +85,8 @@ The Smart Parking Management System is a modern, scalable solution designed for 
 
 ### DevOps
 - **Docker & Docker Compose** - Containerization
+- **Makefile Build System** - Automated image building and management
+- **Versioned Images** - Automatic versioning with registry support
 - **One-Click Deployment** - Complete system startup
 - **Multi-Environment Support** - Production & Development modes
 - **Nginx** - Reverse proxy (production)
@@ -95,10 +97,13 @@ The Smart Parking Management System is a modern, scalable solution designed for 
 
 ### 🐳 **One-Command Startup (Recommended)**
 ```bash
-# Start complete system with sample data
+# Option 1: Using new build system (Recommended)
+make build && ./smart-parking --start
+
+# Option 2: Using original script
 ./start-smart-parking.sh
 
-# Or for development with hot reload
+# Option 3: Development with hot reload
 ./start-dev.sh
 ```
 
@@ -212,6 +217,77 @@ TIMEZONE=Asia/Kolkata
 CELERY_BROKER_URL=redis://localhost:6379/1
 CELERY_RESULT_BACKEND=redis://localhost:6379/2
 ```
+
+## 🏗️ Build System
+
+### **Makefile Commands**
+The project includes a comprehensive Makefile for building and managing Docker images:
+
+```bash
+# Build Operations
+make build              # Build all Docker images
+make build-backend      # Build only backend image
+make build-frontend     # Build only frontend image
+make dev-build          # Build with commit ID (dev mode)
+
+# Image Management
+make docker-image       # Alias for build
+make push               # Push images to registry
+make pull               # Pull images from registry
+make images             # List built images
+make clean-images       # Remove all images
+
+# Application Control
+make start              # Start the application
+make stop               # Stop the application
+make restart            # Restart the application
+make status             # Show service status
+make logs               # Show application logs
+make clean              # Clean up everything
+
+# Utilities
+make version            # Show version information
+make validate           # Validate Docker setup
+make config             # Show build configuration
+make help               # Show all available commands
+```
+
+### **Management Script**
+The `smart-parking` script provides easy application management:
+
+```bash
+./smart-parking --start     # Start the system
+./smart-parking --stop      # Stop the system
+./smart-parking --restart   # Restart the system
+./smart-parking --status    # Check status
+./smart-parking --logs      # View logs
+./smart-parking --cleanup   # Clean up everything
+./smart-parking --help      # Show help
+```
+
+### **Versioning & Registry Support**
+- **Version Control**: Uses `VERSION` file for image versioning
+- **Registry Support**: Optional Docker registry configuration
+- **Dev Mode**: Use commit ID for development builds
+- **Build Info**: Embedded version, commit, and build date in images
+
+```bash
+# Custom registry
+export REGISTRY=myregistry.com/myorg
+make build
+
+# Custom version
+export VERSION=2.0.0
+make build
+
+# Development mode
+make build DEV_MODE=true
+```
+
+### **Docker Compose Files**
+- `docker-compose.complete.yaml` - Production setup with pre-built images
+- `docker-compose.fullstack.yml` - Development setup with build context
+- `docker-compose.dev.yml` - Development with hot reload
 
 ## 🧪 Testing
 

@@ -2,8 +2,15 @@
 
 ## ⚡ **TL;DR - Start Everything Now**
 
+### **Option 1: Using Pre-built Images (Recommended)**
 ```bash
-# Start complete production system
+# Build images and start complete production system
+make build && ./smart-parking --start
+```
+
+### **Option 2: Using Original Script**
+```bash
+# Start complete production system with development build
 ./start-smart-parking.sh
 ```
 
@@ -55,7 +62,27 @@
 
 ## 🛠️ **Available Commands**
 
-### **Production Mode:**
+### **New Build System (Recommended):**
+```bash
+# Build and Management
+make build                        # Build all Docker images
+make start                        # Start the application
+make stop                         # Stop the application
+make restart                      # Restart the application
+make clean                        # Clean up everything
+make help                         # Show all available commands
+
+# Management Script
+./smart-parking --start           # Start the system
+./smart-parking --stop            # Stop the system
+./smart-parking --restart         # Restart the system
+./smart-parking --status          # Check status
+./smart-parking --logs            # View logs
+./smart-parking --cleanup         # Clean up everything
+./smart-parking --help            # Show help
+```
+
+### **Original Scripts (Legacy):**
 ```bash
 ./start-smart-parking.sh          # Start everything
 ./start-smart-parking.sh stop     # Stop all services
@@ -69,6 +96,63 @@
 ./start-dev.sh                    # Dev mode with hot reload
 ./start-dev.sh backend-only       # Backend services only
 ./start-dev.sh stop               # Stop services
+```
+
+---
+
+## 🏗️ **Build System Features**
+
+### **Docker Image Management:**
+- **Versioned Images**: Automatic versioning from VERSION file
+- **Registry Support**: Optional Docker registry configuration
+- **Dev Mode**: Use commit ID for development builds
+- **Build Info**: Embedded version, commit, and build date in images
+- **Multi-arch Support**: Ready for different architectures
+
+### **Makefile Commands:**
+```bash
+# Basic Operations
+make build              # Build all images
+make build-backend      # Build only backend
+make build-frontend     # Build only frontend
+
+# Image Management
+make docker-image       # Alias for build
+make push               # Push images to registry
+make pull               # Pull images from registry
+
+# Application Control
+make start              # Start application
+make stop               # Stop application
+make restart            # Restart application
+make status             # Show status
+make logs               # Show logs
+make clean              # Clean everything
+
+# Development
+make dev-build          # Build with commit ID
+make dev-start          # Build dev images and start
+
+# Utilities
+make version            # Show version info
+make images             # List built images
+make clean-images       # Remove all images
+make validate           # Validate Docker setup
+make config             # Show build configuration
+```
+
+### **Environment Variables:**
+```bash
+# Registry Configuration
+export REGISTRY=myregistry.com/myorg
+make build              # Uses custom registry
+
+# Version Override
+export VERSION=2.0.0
+make build              # Uses custom version
+
+# Development Mode
+make build DEV_MODE=true    # Uses commit ID as version
 ```
 
 ---

@@ -115,7 +115,7 @@ app.add_middleware(
 if settings.is_production:
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*.yourdomain.com", "yourdomain.com"]
+        allowed_hosts=["*.smartparking.com", "smartparking.com", "localhost", "127.0.0.1", "0.0.0.0"]
     )
 
 
@@ -178,6 +178,18 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         },
     )
 
+
+# Root endpoint
+@app.get("/", tags=["Root"])
+async def root():
+    """Root endpoint."""
+    return {
+        "message": "Smart Parking Management System API",
+        "version": settings.version,
+        "environment": settings.environment,
+        "docs": "/docs" if settings.environment != "production" else "Documentation not available in production",
+        "health": "/health"
+    }
 
 # Health check endpoint
 @app.get("/health", tags=["Health"])
